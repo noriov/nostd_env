@@ -1,0 +1,10 @@
+[package]
+name = "nostd_env"
+version = "0.1.0"
+edition = "2021"
+description = "an experimental no_std environment"
+license = "MIT-0"
+readme = "README.md"
+repository = "https://github.com/noriov/nostd_env"
+
+[dependencies]

@@ -106,9 +106,12 @@ lmboot0_rm16:
 	# Note2: %dl already has the boot drive ID.
 	#
 
+	# Set $__lmb_main1_start to EBX.
+	movl	$__lmb_main1_start, %ebx
+
 	# Number of bytes: ECX = $__lmb_main1_end - $__lmb_main1_start
 	movl	$__lmb_main1_end, %ecx
-	subl	$__lmb_main1_start, %ecx
+	subl	%ebx, %ecx
 
 	# Number of blocks: ECX = (ECX + 511) / 512
 	addl	$511, %ecx
@@ -116,7 +119,6 @@ lmboot0_rm16:
 
 	# Load blocks from drive.
 	movl	$1, %eax			# LBA = 1
-	movl	$__lmb_main1_start, %ebx	# Memory address
 	call	lmboot0_load_blocks
 	jc	lmboot0_loading_failed
 

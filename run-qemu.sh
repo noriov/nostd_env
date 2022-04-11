@@ -2,7 +2,7 @@
 
 TARGET="x86_64-unknown-none"
 
-DEVSYS=`rustup toolchain list | grep nightly | sed -e 's/^nightly-//' | awk ' { print $1 } '`
+DEVSYS=`rustup toolchain list | grep nightly-x86_64 | sed -e 's/^nightly-//' | awk ' { print $1 } '`
 NAME=`grep name Cargo.toml | cut -d= -f2 | sed -e 's/[ "]*//g'`
 
 TOOLCHAIN_DIR="$HOME/.rustup/toolchains/nightly-$DEVSYS"

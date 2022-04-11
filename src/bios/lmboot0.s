@@ -163,26 +163,28 @@ lmboot0_rm16:
 	xorl	%eax, %eax			# EAX = 0
 	rep stosl
 
+	# Set PML4 start address to ECX, and set PDPT start address to EDX.
+	movl	$__lmb_pml4_start, %ecx		# ECX = PML4 start address
+	movl	$__lmb_pdpt_start, %edx		# EDX = PDPT start address
+
 	# Construct PML4 table (with 1 entry) that is the root of page tables.
-	movl	$__lmb_pdpt_start, %eax
+	movl	%edx, %eax			# EAX = PDPT start address
 	orl	$3, %eax			# Bit 0: Present, Bit 1: R/W
-	movl	%eax, (__lmb_pml4_start)	# 0th entry.
+	movl	%eax, (%ecx)			# 0th entry of PML4 table
 
 	# Construct the 0th PDPT (with 4 entries for four 1GB-Pages).
 	movl	$0x83, %eax	# Bit 0: Present, Bit 1: R/W, Bit 7: 1GB-Page
-	movl	$(1 << 30), %ecx		# ECX = 1GB
-	movl	$__lmb_pdpt_start, %ebx
-	movl	%eax, 0x00(%ebx)		# 0th entry (0GB - 1GB)
-	addl	%ecx, %eax
-	movl	%eax, 0x08(%ebx)		# 1st entry (1GB - 2GB)
-	addl	%ecx, %eax
-	movl	%eax, 0x10(%ebx)		# 2nd entry (2GB - 3GB)
-	addl	%ecx, %eax
-	movl	%eax, 0x18(%ebx)		# 3rd entry (3GB - 4GB)
+	movl	$(1 << 30), %ebx # EBX = 1GB
+	movl	%eax, 0x00(%edx)		# 0th entry of PDPT (0GB - 1GB)
+	addl	%ebx, %eax	# EAX += 1GB
+	movl	%eax, 0x08(%edx)		# 1st entry of PDPT (1GB - 2GB)
+	addl	%ebx, %eax	# EAX += 1GB
+	movl	%eax, 0x10(%edx)		# 2nd entry of PDPT (2GB - 3GB)
+	addl	%ebx, %eax	# EAX += 1GB
+	movl	%eax, 0x18(%edx)		# 3rd entry of PDPT (3GB - 4GB)
 
-	# Set the root of the page tables to CR3.
-	movl	$__lmb_pml4_start, %eax		# PML4 table
-	movl	%eax, %cr3
+	# Set the root of the page tables (PML4 table address) to CR3.
+	movl	%ecx, %cr3
 
 	########################################################
 	#

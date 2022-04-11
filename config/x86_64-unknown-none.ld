@@ -21,7 +21,7 @@ SECTIONS {
         *(.lmboot0)   /* 0x7c00-: Its size must be exactly 512 bytes. */
 
         __lmb_main1_start = .;
-        *(.lmbios1*)  /* 0x7e00-: Its highest addr must be less than 64KB. */
+        *(.lmbios1)   /* 0x7e00-: Its highest addr must be less than 64KB. */
 
         *(.text*)
         *(.rodata*)

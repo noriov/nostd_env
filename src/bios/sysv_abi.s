@@ -46,7 +46,7 @@
 # For more information, see the references listed at the tail of this file.
 #
 
-	.section .lmbios1.sysv_abi, "xa"  # xa = executable, allocatable
+	.section .text.lmbios1.sysv_abi, "xa"  # xa = executable, allocatable
 	.globl lmbios_call
 	.globl lmbios_get_boot_drive_id
 	.code64

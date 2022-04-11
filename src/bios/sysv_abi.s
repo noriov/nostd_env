@@ -1,7 +1,7 @@
 #
-# SysV ABI wrapper for lmbios1
+# SysV AMD64 ABI wrapper for lmbios1
 #
-# Summary of SysV ABI:
+# Summary of SysV AMD64 ABI:
 #
 # (1) Return registers are RAX and RDX.
 #
@@ -16,7 +16,7 @@
 #   * 4th argument: RCX
 #   * 5th argument: R8
 #   * 6th argument: R9
-#   * 7th argument and more: stack
+#   * 7th argument and more: on the stack
 #
 #   Note: These registers are caller-saved.
 #
@@ -32,7 +32,7 @@
 #   * RBX and RBP must be saved and restored in this wrapper.
 #
 #   * RSP need not be explicitly saved and restored
-#     because its value at the end of a subroutine should be the
+#     because its value at the end of a subroutine must be the
 #     same as its value at the beginning of the subroutine.
 #
 #   * R12 - R15 need not be saved
@@ -41,7 +41,7 @@
 #   * X87 control word is intentionally not saved in this wrapper.
 #     Hence, the internal subroutine must take care of it.
 #
-# (4) RSP + 8 must be aligned on a 16-byte boundary.
+# (4) RSP + 8 or 8(%rsp) must be aligned on a 16-byte boundary.
 #
 # For more information, see the references listed at the tail of this file.
 #

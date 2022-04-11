@@ -19,7 +19,7 @@
 #   (7) Its memory area is from __lmb_main1_start to __lmb_main1_end, and
 #   (8) Its entry point is __bare_start.
 #
-# Hence, lmboot0 simply loads a program by using BIOS and executes it in
+# Hence, lmboot0 simply loads a program using BIOS and executes it in
 # Long Mode without printing any message except fatal error messages.
 #
 # Configurations made by lmboot0 are:
@@ -40,23 +40,25 @@
 #
 # Note1: Above symbols are defined in the linker script.
 #
-# Note2: lmboot0 is written in att_sytax to write the following lines:
-#	jmp	$0x0000, $lmboot0_rm16	# CS = 0x0000, IP = $lmboot0_rm16
-#	jmp	$0x10, $lmboot0_lm64	# CS = 0x0010, IP = $lmboot0_lm64
-#
-#   NASM allows to write as following, but intel_sytax doesn't..
-#	jmp	0x0000:lmboot0_rm16	# CS = 0x0000, IP = lmboot0_rm16
-#	jmp	0x10:lmboot0_lm64	# CS = 0x0008, IP = lmboot0_lm64
-#
-#   # We thought this notation (5 bytes) saves a couple of bytes compared
-#   # to the notation using pushw and lretw (6 bytes), but ..laugh..
-#
-# Note3: 32-bit registers work in Real Mode without special settings.
+# Note2: 32-bit registers work in Real Mode without any special settings.
 #        They can access to 20-bit addresss apace (1MB) by default.
 #        (If the A20 line is enabled, and Unreal Mode is enabled,
 #         they can access up to 32-bit addresss apace (4GB).)
 #
-# For more information, see the references at the tail of this file.
+# Note3: lmboot0 is written in att_sytax to write the following lines:
+#	ljmp	$0x0000, $lmboot0_rm16	# CS = 0x0000, IP = $lmboot0_rm16
+#	ljmp	$0x10, $lmboot0_lm64	# CS = 0x0010, IP = $lmboot0_lm64
+#
+#   NASM allows to write as following, but intel_sytax seems not.
+#	jmp	0x0000:lmboot0_rm16	# CS = 0x0000, IP = lmboot0_rm16
+#	jmp	0x10:lmboot0_lm64	# CS = 0x0008, IP = lmboot0_lm64
+#
+#   # We thought "ljmp $0, $addr" saves a couple of bytes compared to
+#   # "pushw $0; pushw $addr; lretw".  But generated codes are:
+#   #   ea 10 7c 00 00     (5 bytes) for "ljmp $0, $addr"
+#   #   6a 00 68 11 7c cb  (6 bytes) for "pushw $0; pushw $addr; lretw"
+#
+# Technical references and summaries are listed at the tail of this file.
 #
 
 	.section .lmboot0, "axw"  # axw = allocatable, executable, writable
@@ -76,7 +78,7 @@
 __lmboot0_entry:
 	########################################################
 	#
-	# Initialize segment registers.
+	# Initialize segment registers and FLAGS.
 	#
 	# States: CPU = Real Mode, Code segment = 16-bit mode.
 	#
@@ -86,7 +88,7 @@ __lmboot0_entry:
 	movw	%ax, %ss			# SS = 0x0000
 
 	movw	$__lmb_stack_bottom, %sp	# SP = 0x7c00
-	jmp	$0x0000, $lmboot0_rm16		# CS = 0, IP = $lmboot0_rm16
+	ljmp	$0x0000, $lmboot0_rm16		# CS = 0, IP = $lmboot0_rm16
 lmboot0_rm16:
 
 	# Initialize the direction flag.
@@ -147,7 +149,7 @@ lmboot0_rm16:
 	#
 	# Construct 4-Level Paging page tables for Long Mode.
 	#
-	# Identity Paging from 0 to 4GB - 1 (0x0000_0000 to 0xFFFF_FFFF)
+	# Identity Paging from 0 to 4GB - 1 (32-bit address space)
 	# regardless of available memory size.
 	#
 	# Two page tables are constructed.
@@ -155,7 +157,7 @@ lmboot0_rm16:
 	#   (2) One PDPT (Size: 4KB) with 4 entries pointing to 1GB-Pages
 	#
 
-	# Clear page table area.		# DF = 0 (Direction flag)
+	# Clear page table area.   # Note: Alreay DF = 0 (Direction flag)
 	movl	$__lmb_page_tables_start, %edi	# EDI = start of page tables
 	movl	$__lmb_page_tables_end, %ecx	# ECX = end of page tables, now
 	subl	%edi, %ecx			# ECX = page table size, now
@@ -192,6 +194,11 @@ lmboot0_rm16:
 	#
 	lgdt	(lmboot0_gdt_location)
 
+	# List of segment selectors.
+	.set	SEG_CODE64, 0x08	# Selector 1, GDT, RPL=0
+	.set	SEG_CODE16, 0x10	# Selector 2, GDT, RPL=0
+	.set	SEG_DATA,   0x18	# Selector 3, GDT, RPL=0
+
 	########################################################
 	#
 	# Enter Long Mode.
@@ -221,6 +228,7 @@ lmboot0_rm16:
 	movl	%eax, %cr0
 
 	# Check LMA (Bit 10) in EFER  (LMA = Long Mode Active).
+	# Note: ECX = $MSR_EFER
 	rdmsr
 	testl	$EFER_LMA, %eax
 	jz	lmboot0_no_long_mode
@@ -232,12 +240,7 @@ lmboot0_rm16:
 	#
 	# States: CPU = Long Mode, Code segment = 16-bit mode.
 	#
-
-	.set	SEG_CODE64, 0x08	# Selector 1, GDT, RPL=0
-	.set	SEG_CODE16, 0x10	# Selector 2, GDT, RPL=0
-	.set	SEG_DATA,   0x18	# Selector 3, GDT, RPL=0
-
-	movw	$SEG_DATA, %ax
+	movw	$SEG_DATA, %ax		# Segment Selector for Data
 	movw	%ax, %ds		# DS = SEG_DATA
 	movw	%ax, %es		# ES = SEG_DATA
 	movw	%ax, %fs		# FS = SEG_DATA
@@ -245,15 +248,18 @@ lmboot0_rm16:
 	movw	%ax, %ss		# SS = SEG_DATA
 
 	# Clear the instruction prefetch queue and reset CS.
-	jmp	$SEG_CODE64, $lmboot0_lm64	# CS = SEG_CODE64
+	ljmp	$SEG_CODE64, $lmboot0_lm64	# CS = SEG_CODE64
 lmboot0_lm64:
 
 	########################################################
 	#
 	# Start loaded program.
 	#
-	# Note: Because the offset to __bare_start may be larger than 64KB,
-	#       64-bit mode of jump instruction should be used.
+	# Note: Because the address of __bare_start is up to 20 bits,
+	#       16-bit addressing "jmp" cannot be used to jump there.
+	#       In order to use 32-bit relative addressing "jmp",
+	#       code segment selector has been changed from 16-bit mode
+	#       to 64-bit mode.  Now, jump to __bare_start!
 	#
 	# States: CPU = Long Mode, Code segment = 64-bit mode.
 	#
@@ -279,9 +285,9 @@ lmboot0_no_long_mode:
 lmboot0_error:
 	call	lmboot0_print_asciz
 
-lmboot0_hlt_repeatedly:
+lmboot0_halt_repeatedly:
 	hlt
-	jmp	lmboot0_hlt_repeatedly
+	jmp	lmboot0_halt_repeatedly
 
 
 lmboot0_loading_failed_msg:
@@ -296,6 +302,8 @@ lmboot0_no_long_mode_msg:
 # IN
 #	SI	: Null-terminated string
 #
+# Scratched: AX, BX
+#
 lmboot0_print_asciz:
 #	# Save working register values.
 #	pushw	%ax
@@ -306,12 +314,12 @@ lmboot0_print_asciz:
 
 lmboot0_print_asciz_loop:
 	# Load the next character into AL.
-	# Note: DF = 0 (Direction flag)
-	lodsb			# AL = DS:[SI++]
+	#   Note: Already DF = 0 (Direction flag)
+	lodsb		# AL = DS:[SI++]
 	testb	%al, %al
 	jz	lmboot0_print_asciz_done
 
-	# INT 10h AH=0Eh (Teletype output)
+	# INT 10h AH=0Eh (Teletype Output)
 	# AL = Character, BH = Page number, BL = Foreground color
 	movb	$0x0e, %ah
 	int	$0x10
@@ -421,7 +429,7 @@ lmboot0_load_blocks_amap:
 	int	$0x13
 
 	# Deallocate memory for the Disk Address Packet
-	addw	$0x10, %sp		# 0x10 bytes on the stack.
+	addw	$0x10, %sp		# The size of DAP = 0x10
 
 	# Restore saved register values.
 	popw	%si
@@ -450,8 +458,8 @@ __lmboot0_boot_drive_id:
 
 lmboot0_gdt_start:
 	.quad	0			# 0: NULL
-	.quad	0x00209a0000000000	# 1: Code 64
-	.quad	0x00009a0000000000	# 2: Code 16
+	.quad	0x00209a0000000000	# 1: Code 64-bit mode
+	.quad	0x00009a0000000000	# 2: Code 16-bit mode
 	.quad	0x0000920000000000	# 3: Data
 lmboot0_gdt_end:
 

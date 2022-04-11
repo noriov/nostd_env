@@ -26,14 +26,15 @@ fn halt_forever() -> ! {
 pub extern "C" fn __bare_start() -> ! {
     println!("Hello, world!");
 
-    // Read the first 512 bytes of data from the boot drive,
+    // The unsafe block below
+    // reads the first 512 bytes of data from the boot drive,
     // and show the first 8 bytes.
     unsafe {
 	let drive_id = bios::ffi::lmbios_get_boot_drive_id();
 	let buf_addr = 0x4000 as *const u8;
 
 	// INT 13h AH=02h: Read Sectors From Drive
-	// AL: #Sectors, ECX: Cylinder and Sector, DH: Head, D: Drive,
+	// AL: #Sectors, ECX: Cylinder and Sector, DH: Head, DL: Drive ID,
 	// ES:BX : Buffer Address.
 	// cf. https://en.wikipedia.org/wiki/INT_13H
 	let mut regs = bios::ffi::LmbiosRegs {

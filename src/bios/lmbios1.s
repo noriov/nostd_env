@@ -24,8 +24,8 @@
 #       Mutual exclusion is not implemented.
 #
 #   (4) Performance is not a big issue.
-#       It would be used to build an experimental environment for
-#       learning purposes, a mockup program, a prototype program,
+#       Typical use cases might be to build an experimental environment
+#       for learning purposes, a mockup program, a prototype program,
 #       or a short-lived program such as a loader of a small kernel or
 #       a loader of a more sophisticated loader of a large kernel.
 #
@@ -33,8 +33,8 @@
 #
 #   (1) Code address and stack address are less than 64KB.
 #       In Real Mode, Instruction Pointer (IP) and Stack Pointer (SP)
-#       need to be copyable to 16-bit registers, while lmbios1 assumes
-#       that all segment regsters are zero when it runs.
+#       need to be copyable to 16-bit registers, while lmbios1 keeps
+#       all segment registers zero when it runs.
 #
 #       Note: Only during a Real Mode function call, DS and ES are
 #       changed as specified by the parameter structure.
@@ -44,13 +44,14 @@
 #       regsiters.
 #
 #       Note: Thanks to Unreal Mode, lmbios1 can access up to 32-bit
-#       address space (4GB) using 32-bit register indirect addressing.
+#       address space (4GB) by using 32-bit register indirect addressing.
 #
 #   (3) Any address passed to Real Mode legacy function is less than 1MB.
 #       Real Mode legacy function accesses memory using 16-bit segment
-#       register and 16-bit offset.  If an address of a memory buffer
-#       should be exchanged with Real Mode legacy function, e.g. BIOS,
-#       such memory buffer should be allocated under 1MB.
+#       register and 16-bit offset (20-bit address space).  Therefore,
+#       If memory buffer address should be exchanged with Real Mode
+#       legacy function, e.g. BIOS, it should be allocated in 20-bit
+#       address space (i.e., less than 1MB).
 #
 #   (4) Configurations made by lmboot0 must not be changed.
 #
@@ -81,7 +82,7 @@ lmbios1_dispatch:
 
 	# 0x00 - 0xFF : Software Interrupt (INT n)
 	cmp	$0xff, %ax
-	jbe	lmbios1_call_intn
+	jbe	lmbios1_intn
 
 	# Additional dispatching code can be put here.
 
@@ -92,7 +93,7 @@ lmbios1_dispatch_unsupported:
 
 #########################################################################
 #
-# lmbios1_dispatch - Call Software Interrupt (INT n)
+# lmbios1_intn - Call Software Interrupt (INT n)
 #
 # IN
 #	RAX	: Software Interrupt Number (INT n)
@@ -100,7 +101,7 @@ lmbios1_dispatch_unsupported:
 #
 	.p2align 4, 0x90  # 0x90 = NOP (= xchgl %eax, %eax)
 
-lmbios1_call_intn:
+lmbios1_intn:
 	.code64
 	push	%rax		# Save function number.
 
@@ -115,24 +116,23 @@ lmbios1_call_intn:
 	# Because X86 is little-endian machine, these 4 bytes codes
 	# should be represented in the reverse order, i.e., 0x90C3hhCD.
 	#
-	push	%rax		# Save function number.
-
 	shlw	$8, %ax
 	orl	$0x90c300cd, %eax
 	pushq	%rax		# Instruction codes = 0xCD 0xhh 0xC3 0x90
 	movq	%rsp, %rcx	# RCX = Entry point of "INT n; RET; NOP"
 
-	movq	$lmbios1_call_subr_in_rm16, %rdx
-	call	lmbios1_dive_into_rm16
+	movq	$lmbios1_exec, %rdx
+	call	lmbios1_dive
 
 	add	$8, %rsp	# Discard the constructed instruction.
+
 	popq	%rax		# Restore function number to RAX.
 	retq
 
 
 #########################################################################
 #
-# lmbios1_dive_into_rm16 - Call specified subroutine in Real Mode.
+# lmbios1_dive - Dive into Real Mode and call specified subroutine.
 #
 # IN
 #	RDX	: Entry point of subroutine
@@ -141,7 +141,7 @@ lmbios1_call_intn:
 #
 	.p2align 4, 0x90  # 0x90 = NOP (= xchgl %eax, %eax)
 
-lmbios1_dive_into_rm16:
+lmbios1_dive:
 	.code64
 	pushq	%rax	# Save a working register value.
 
@@ -160,15 +160,15 @@ lmbios1_dive_into_rm16:
 	#
 	subq	$16, %rsp		# Prepare room for new CS + new RIP.
 	movq	$SEG_CODE16, 8(%rsp)	# 8(%rsp) = SEG_CODE16 (new CS)
-	movabsq	$lmbios1_lm16, %rax
-	movq	%rax, (%rsp)		# 0(%rsp) = $lmbios1_lm16 (new RIP)
-	lretq				# CS:RIP = SEG_CODE16:$lmbios1_lm16
+	movabsq	$lmbios1_dive_lm16, %rax
+	movq	%rax, (%rsp)		# 0(%rsp) = lmbios1_dive_lm16 (new RIP)
+	lretq				# CS:RIP = SEG_CODE16:lmbios1_dive_lm16
 
 	# Note: lretq pops RIP and CS simultanously.
 	# As a result, %rsp is increased by 16 (instead of 10).
 	# That is, %rsp turns back to the original level.
 
-lmbios1_lm16:
+lmbios1_dive_lm16:
 	.code16
 
 	# Now, code segment is 16-bit mode!
@@ -203,25 +203,25 @@ lmbios1_lm16:
 	movw	%ax, %gs		# GS = 0x0000
 	movw	%ax, %ss		# SS = 0x0000
 
-	jmp	$0x0000, $lmbios1_rm16	# CS = 0x0000, IP = $lmbios1_rm16
-lmbios1_rm16:
+	jmp	$0x0000, $lmbios1_dive_rm16	# CS:IP = new CS : new IP
+lmbios1_dive_rm16:
 
 	# Now, all segment registers have Real-Mode-style values!
 	# 32-bit address space can be accessed thanks to Unreal Mode!
 
 	########################################################
 	#
-	# Call subroutine in Real Mode.
+	# Call subroutine in Real Mode (so-called Unreal Mode).
 	#
 	# States: CPU = Real Mode, Code segment = 16-bit mode.
 	#
 	movl	(%esp), %eax	# Restore a working register value.
 
 	# Call %dx via a complex method (see Appendix at the tail of this file)
-	pushw	$lmbios1_subr_done	# Instruction address next to retw
+	pushw	$lmbios1_dive_subr_done	# Instruction address next to retw
 	pushw	%dx			# Subroutine address
 	retw				# Pop %ip
-lmbios1_subr_done:
+lmbios1_dive_subr_done:
 
 	########################################################
 	#
@@ -253,8 +253,8 @@ lmbios1_subr_done:
 	movw	%ax, %ss
 
 	# Clear the instruction prefetch queue and reset CS.
-	jmp	$SEG_CODE64, $lmbios1_lm64
-lmbios1_lm64:
+	jmp	$SEG_CODE64, $lmbios1_dive_lm64
+lmbios1_dive_lm64:
 	.code64
 
 	# Now, code segment is 64-bit mode!
@@ -272,16 +272,16 @@ lmbios1_lm64:
 
 ########################################################################
 #
-# lmbios1_call_subr_in_rm16 - Call subroutine in Real Mode
+# lmbios1_exec - Call subroutine in Real Mode
 #
 # IN
 #	EBX	: Pointer to parameters
 #	ECX	: Entry point of subroutine
 #
-# Note: EAX, ECX, EDX, EBX, ESI, EDI and EBP are scratched.
+# Scratched: EAX, ECX, EDX, EBX, ESI, EDI, EBP
 #
 
-lmbios1_call_subr_in_rm16:
+lmbios1_exec:
 	.code16
 
 	########################################################
@@ -294,7 +294,7 @@ lmbios1_call_subr_in_rm16:
 
 	# Prepare to call %cx via a complex method.
 	#   (for more information, see Appendix at the tail of this file)
-	pushw	$lmbios1_func_done	# Instruction address next to retw
+	pushw	$lmbios1_exec_subr_done	# Instruction address next to retw
 	pushw	%cx			# Subroutine address
 
 	# Figure of the stack top at this moment.
@@ -303,7 +303,7 @@ lmbios1_call_subr_in_rm16:
 	#       +---------------------+
 	# 00-03 | Subroutine address  | = Original CX
 	#       +---------------------+
-	# 04-07 | Instruction address | = lmbios1_func_done
+	# 04-07 | Instruction address | = lmbios1_exec_subr_done
 	#       +---------------------+
 	# 08-09 | Saved DS            |
 	#       +---------------------+
@@ -335,7 +335,7 @@ lmbios1_call_subr_in_rm16:
 	# Call original %cx via a complex method prepared above.
 	retw
 
-lmbios1_func_done:
+lmbios1_exec_subr_done:
 	# Figure of the stack top at this moment.
 	#
 	# Offset    Stack contents
@@ -425,16 +425,16 @@ lmbios1_func_done:
 #
 # Suppose that DX points to a subroutine entry.  Here is an example code.
 #
-#	pushw	$lmbios1_subr_done	# instruction address next to retw
-#	pushw	%dx			# Specified subroutine address
+#	pushw	$lmbios1_dive_subr_done	# Instruction address next to retw
+#	pushw	%dx			# Subroutine address
 #	retw				# Pop %ip
-#   lmbios1_subr_done:
+#   lmbios1_dive_subr_done:
 #
 # Step 1. Push (1) instruction address next to retw, and
 #              (2) subroutine entry address
 #         by the following two instructions:
 #
-#	pushw	$lmbios1_subr_done
+#	pushw	$lmbios1_dive_subr_done
 #	pushw	%dx
 #
 #    Here is a figure of the stack top at this moment.
@@ -443,7 +443,7 @@ lmbios1_func_done:
 #	      +---------------------+
 #	00-01 | Subroutine address  | = DX value
 #	      +---------------------+
-#	02-03 | Instruction address | = lmbios1_subr_done
+#	02-03 | Instruction address | = lmbios1_dive_subr_done
 #	      +---------------------+
 #	04-   | Other data ..       |
 #	      +---------------------+
@@ -457,7 +457,7 @@ lmbios1_func_done:
 #
 #	Offset    Stack contents
 #	      +---------------------+
-#	00-01 | Instruction address | = lmbios1_subr_done
+#	00-01 | Instruction address | = lmbios1_dive_subr_done
 #	      +---------------------+
 #	02-   | Other data ..       |
 #	      +---------------------+

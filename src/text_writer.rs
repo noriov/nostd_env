@@ -6,7 +6,7 @@ pub struct TextWriter;
 impl TextWriter {
     pub fn write_byte(&mut self, byte: u8) {
 	unsafe {
-	    // INT 10h AH=0Eh: Teletype output
+	    // INT 10h AH=0Eh: Teletype Output
 	    // AL: Character, BH: Page Number, BL: Color
 	    // cf. https://en.wikipedia.org/wiki/INT_10H
 	    let mut regs = bios::ffi::LmbiosRegs {
@@ -32,22 +32,27 @@ impl TextWriter {
 
 impl fmt::Write for TextWriter {
     fn write_str(&mut self, utf8_str: &str) -> fmt::Result {
-        self.write_ascii_printables(utf8_str);
-        Ok(())
+	self.write_ascii_printables(utf8_str);
+	Ok(())
     }
 }
 
 
 #[macro_export]
 macro_rules! println {
-    () => ($crate::print!("\r\n"));
-    ($($arg:tt)*) => ($crate::print!("{}\r\n", format_args!($($arg)*)));
+    () => {
+	$crate::print!("\r\n")
+    };
+    ( $($arg:tt)* ) => {
+	$crate::print!("{}\r\n", format_args!( $($arg)* ))
+    };
 }
+
 
 #[macro_export]
 macro_rules! print {
-    ($($arg:tt)*) => {
-	($crate::text_writer::_text_print(format_args!($($arg)*)))
+    ( $($arg:tt)* ) => {
+	$crate::text_writer::_text_print(format_args!( $($arg)* ))
     };
 }
 

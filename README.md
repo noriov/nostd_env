@@ -30,13 +30,15 @@ supported.
 
 (1) x86-64 CPU is required.
 
-(2) Nightly version of Rust is required.
+(2) qemu-system-x86_64 is required. (cf. <https://www.qemu.org>)
+
+(3) The following tools seem to be required.
 
 ```sh
 % rustup toolchain install nightly
+% cargo install cargo-binutils
+% rustup component add llvm-tools-preview
 ```
-
-(3) qemu-system-x86_64 is required. (cf. <https://www.qemu.org>)
 
 # How to build and run
 

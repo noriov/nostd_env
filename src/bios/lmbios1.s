@@ -102,20 +102,7 @@ lmbios1_dispatch_unsupported:
 
 lmbios1_call_intn:
 	.code64
-
-	########################################################
-	#
-	# Check whether INT n handler exists.
-	#
-	# Note: IVT is an array of segment:offset (4 bytes) pairs.
-	#       It resides from 0x0000 to 0x03FF (Total Size = 4 bytes * 256)
-	#
 	push	%rax		# Save function number.
-	shll	$2, %eax	# EAX = address of interrupt handler address
-	movl	(%eax), %eax	# EAX = interrupt handler address
-	cmp	$0, %eax
-	popq	%rax		# Restore function number to RAX.
-	jz	lmbios1_dispatch_unsupported
 
 	########################################################
 	#

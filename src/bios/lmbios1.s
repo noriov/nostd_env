@@ -16,7 +16,7 @@
 #       It is also assumed that __lmboot0_boot_drive_id is accessible.
 #
 #   (2) Interrupt vector table (IVT) has not been changed.
-#       BIOS is called via software interrupts, which depend on IVT.
+#       BIOS is called via software interrupts, which refers to IVT.
 #       If IVT is changed, unexpected function may be called.
 #       IVT resides from 0x0000 to 0x03FF (Size: 1KB).
 #
@@ -37,11 +37,11 @@
 #       all segment registers zero when it runs.
 #
 #       Note: Only during a Real Mode function call, DS and ES are
-#       changed as specified by the parameter structure.
+#       changed as specified in struct LmbiosRegs.
 #
 #   (2) Data addresses passed to lmbios1 are less than 4GB.
-#       In Real Mode, data addresses need to be copyable to 32-bit
-#       regsiters.
+#       In Real Mode, data addresses (e.g. address of struct LmbiosRegs)
+#       need to be copyable to 32-bit regsiters.
 #
 #       Note: Thanks to Unreal Mode, lmbios1 can access up to 32-bit
 #       address space (4GB) by using 32-bit register indirect addressing.
@@ -58,6 +58,7 @@
 
 	.section .lmbios1, "xa"  # xa = executable, allocatable
 	.globl lmbios1_dispatch
+	.globl lmbios1_dive
 
 
 #########################################################################
@@ -65,7 +66,7 @@
 # lmbios1_dispatch - Call function
 #
 # IN
-#	RBX	: Pointer to parameter structure
+#	RBX	: Address of struct LmbiosRegs
 #
 # OUT
 #	RAX	: Executed function number (0xFFFF for unsupported number)
@@ -76,15 +77,15 @@
 lmbios1_dispatch:
 	.code64
 
-	# Copy function number to RAX.
+	# RAX = function number
 	xorq	%rax, %rax
 	movw	0x00(%rbx), %ax
 
-	# 0x00 - 0xFF : Software Interrupt (INT n)
+	# fun 0x00 - 0xFF : Software Interrupt (INT n)
 	cmp	$0xff, %ax
 	jbe	lmbios1_intn
 
-	# Additional dispatching code can be put here.
+	# fun 0x100 - 0xFFFF : (reserved)
 
 lmbios1_dispatch_unsupported:
 	movw	$0xffff, %ax	# 0xFFFF means unsupported.
@@ -97,7 +98,7 @@ lmbios1_dispatch_unsupported:
 #
 # IN
 #	RAX	: Software Interrupt Number (INT n)
-#	RBX	: Pointer to parameter structure
+#	RBX	: Address of struct LmbiosRegs
 #
 	.p2align 4, 0x90  # 0x90 = NOP (= xchgl %eax, %eax)
 
@@ -113,18 +114,38 @@ lmbios1_intn:
 	#	C3	RET
 	#	90	NOP
 	#
-	# Because X86 is little-endian machine, these 4 bytes codes
-	# should be represented in the reverse order, i.e., 0x90C3hhCD.
+	# Note1: Because X86 is little-endian machine, these 4 bytes
+	#        codes should be represented in the reverse order,
+	#        i.e., 0x90C3hhCD.
 	#
-	shlw	$8, %ax
-	orl	$0x90c300cd, %eax
-	pushq	%rax		# Instruction codes = 0xCD 0xhh 0xC3 0x90
-	movq	%rsp, %rcx	# RCX = Entry point of "INT n; RET; NOP"
+	# Note2: In Real Mode, codes on the stack can be executed
+	#        without any restriction.
+	#
+	shlw	$8, %ax		  # AH = Software Interrupt Number
+	orl	$0x90c300cd, %eax # Instruction codes = 0xCD 0xhh 0xC3 0x90
+	pushq	%rax		  # Mnemonic codes    = INT  n;   RET; NOP
+	movq	%rsp, %rcx	  # RCX = Start address of "INT n; RET; NOP"
 
+	########################################################
+	#
+	# Dive into Real Mode and call specified function
+	#
+	# Input:
+	#     RBX = Address of struct LmbiosRegs (Input for lmbios1_exec)
+	#     RCX = Start address of "INT n; RET; NOP" (Input for lmbios1_exec)
+	#     RDX = Start address of subroutine lmbios1_exec (set below)
+	#
+	# For RBX, only lower 32-bits are referred in Real Mode.
+	# For RCX and RDX, only lower 16-bits are referred in Real Mode.
+	#
 	movq	$lmbios1_exec, %rdx
 	call	lmbios1_dive
 
-	add	$8, %rsp	# Discard the constructed instruction.
+	########################################################
+	#
+	# Return to the caller.
+	#
+	add	$8, %rsp	# Discard the above constructed instruction.
 
 	popq	%rax		# Restore function number to RAX.
 	retq
@@ -135,9 +156,10 @@ lmbios1_intn:
 # lmbios1_dive - Dive into Real Mode and call specified subroutine.
 #
 # IN
-#	RDX	: Entry point of subroutine
+#	RDX	: Start address of subroutine (only lower 16 bits are referred)
 #
-# Note: All general purpose registers are passed to specified subroutine.
+# Note: All general purpose 32-bit registers are passed to the specified
+#       subroutine so that they can be used as parameters.
 #
 	.p2align 4, 0x90  # 0x90 = NOP (= xchgl %eax, %eax)
 
@@ -145,10 +167,12 @@ lmbios1_dive:
 	.code64
 	pushq	%rax	# Save a working register value.
 
+	# List of segment selectors set by lmboot0.
 	.set	SEG_CODE64, 0x08	# Selector 1, GDT, RPL=0
 	.set	SEG_CODE16, 0x10	# Selector 2, GDT, RPL=0
 	.set	SEG_DATA,   0x18	# Selector 3, GDT, RPL=0
 
+	# Some bits of CR0 (X86 Control Register)
 	.set	CR0_PE, (1 << 0)	# PE = Protected Mode Enable
 	.set	CR0_PG, (1 << 31)	# PG = Paging
 
@@ -161,7 +185,7 @@ lmbios1_dive:
 	subq	$16, %rsp		# Prepare room for new CS + new RIP.
 	movq	$SEG_CODE16, 8(%rsp)	# 8(%rsp) = SEG_CODE16 (new CS)
 	movabsq	$lmbios1_dive_lm16, %rax
-	movq	%rax, (%rsp)		# 0(%rsp) = lmbios1_dive_lm16 (new RIP)
+	movq	%rax, 0(%rsp)		# 0(%rsp) = lmbios1_dive_lm16 (new RIP)
 	lretq				# CS:RIP = SEG_CODE16:lmbios1_dive_lm16
 
 	# Note: lretq pops RIP and CS simultanously.
@@ -207,21 +231,25 @@ lmbios1_dive_lm16:
 lmbios1_dive_rm16:
 
 	# Now, all segment registers have Real-Mode-style values!
-	# 32-bit address space can be accessed thanks to Unreal Mode!
+	# Note: 32-bit address space can be accessed thanks to Unreal Mode.
 
 	########################################################
 	#
-	# Call subroutine in Real Mode (so-called Unreal Mode).
+	# Call subroutine in Real Mode (in so-called Unreal Mode).
 	#
 	# States: CPU = Real Mode, Code segment = 16-bit mode.
 	#
 	movl	(%esp), %eax	# Restore a working register value.
 
-	# Call %dx via a complex method (see Appendix at the tail of this file)
+	# Call %dx via a bit complex method
+	#   (See Appendix at the tail of this file for detailed information)
 	pushw	$lmbios1_dive_subr_done	# Instruction address next to retw
 	pushw	%dx			# Subroutine address
 	retw				# Pop %ip
 lmbios1_dive_subr_done:
+
+	# Note: It is assumed that any settings for Long Mode are unchanged
+	#       during this subroutine call.
 
 	########################################################
 	#
@@ -236,7 +264,6 @@ lmbios1_dive_subr_done:
 	movl	%eax, %cr0
 
 	# Now, CPU turns back to Long Mode!
-	# Note: It is assumed that other settings for Long Mode are unchanged.
 
 	########################################################
 	#
@@ -275,8 +302,8 @@ lmbios1_dive_lm64:
 # lmbios1_exec - Call subroutine in Real Mode
 #
 # IN
-#	EBX	: Pointer to parameters
-#	ECX	: Entry point of subroutine
+#	EBX	: Address of struct LmbiosRegs
+#	ECX	: Entry point of subroutine (only lower 16 bits are referred)
 #
 # Scratched: EAX, ECX, EDX, EBX, ESI, EDI, EBP
 #
@@ -292,8 +319,8 @@ lmbios1_exec:
 	pushw	%es
 	pushw	%ds
 
-	# Prepare to call %cx via a complex method.
-	#   (for more information, see Appendix at the tail of this file)
+	# Prepare to call %cx via a bit complex method.
+	#   (See Appendix at the tail of this file for detailed information)
 	pushw	$lmbios1_exec_subr_done	# Instruction address next to retw
 	pushw	%cx			# Subroutine address
 
@@ -312,12 +339,12 @@ lmbios1_exec:
 	# 0C-0F | Saved EBX           |
 	#       +---------------------+
 
-	# Load specified parameters to registers.
+	# Load values in struct LmbiosRegs to registers.
 	# At first, push DS and ES.
 	movl	0x20(%ebx), %eax	# DS and ES
 	pushl	%eax
 
-	# Next, load specified parameters to general purpose registers.
+	# Next, load values in struct LmbiosRegs to general purpose registers.
 	movl	0x04(%ebx), %eax	# EAX
 	movl	0x0c(%ebx), %ecx	# ECX
 	movl	0x10(%ebx), %edx	# EDX
@@ -332,7 +359,7 @@ lmbios1_exec:
 
 	# Note: %sp turns back to the same level as the figure above.
 
-	# Call original %cx via a complex method prepared above.
+	# Call original %cx via a bit complex method prepared above.
 	retw
 
 lmbios1_exec_subr_done:
@@ -378,10 +405,10 @@ lmbios1_exec_subr_done:
 
 	# Now, DS and ES can be used!
 
-	# Restore EBX that points to parameter structure.
+	# Restore EBX that points to struct LmbiosRegs.
 	movl	0x10(%esp), %ebx
 
-	# Save resulting register values to parameter structure.
+	# Save resulting register values to struct LmbiosRegs.
 	movl	0x08(%esp), %eax	# saved EAX
 	movl	%eax, 0x04(%ebx)	# EAX
 	movl	0x04(%esp), %eax	# saved EBX
@@ -392,19 +419,19 @@ lmbios1_exec_subr_done:
 	movl	%edi, 0x18(%ebx)	# EDI
 	movl	%ebp, 0x1c(%ebx)	# EBP
 
-	# Save resulting DS and ES to parameter structure.
+	# Save resulting DS and ES to struct LmbiosRegs.
 	movl	(%esp), %eax		# saved above.
 	movl	%eax, 0x20(%ebx)
 
-	# Save FLAGS to parameter structure.
+	# Save FLAGS to struct LmbiosRegs.
 	# Note: FLAGS are not affected by MOV, PUSH and POP above.
 	pushf
 	popw	%ax
 	mov	%ax, 0x02(%ebp)		# FLAGS
 
-	# Now, every resulting values have been saved to parameter structure.
+	# Now, every resulting values have been saved to struct LmbiosRegs.
 
-	# Discard resulting values and saved values on the stack.
+	# Discard unnecessary values on the stack.
 	addw	$0x14, %sp
 
 	# Note: %sp turns back to the original level.
@@ -421,7 +448,7 @@ lmbios1_exec_subr_done:
 # Appendix: How to call a subroutine pointed by 16-bit register
 #
 #   # Because we do not know how to write "call %dx" for 16-bit registers,
-#   # we use a complex method described below.
+#   # we use a bit complex method described below.
 #
 # Suppose that DX points to a subroutine entry.  Here is an example code.
 #
@@ -462,8 +489,9 @@ lmbios1_exec_subr_done:
 #	02-   | Other data ..       |
 #	      +---------------------+
 #
-# Step 3. When the subroutine ends, "retw" would pop the next
-#         instruction address at the top of the stack into %ip.
+# Step 3. When the subroutine ends, "retw" would be executed to pop
+#         the next instruction address saved at the top of the stack
+#         into %ip.
 #
 #    Here is a figure of the stack top at this moment.
 #    Note: Stack Pointer (SP) turns back to the original level.

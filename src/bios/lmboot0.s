@@ -1,23 +1,24 @@
 #
 # lmboot0 - Boot a program in Long Mode (for X86_64 / PC Compatible machines)
 #
-# lmboot0 is a small boot loader to run a Rust `no_std` program in X86
+# lmboot0 is a small boot loader to run a Rust no_std program in X86
 # Long Mode.  Because its size <= 0x1BE, it fits in a classical Master
 # Boot Record (MBR).
 #
 # lmboot0 assumes that:
 #   (1) CPU supports Long Mode,
-#   (2) The A20 line can be enabled via I/O Port 92h, and
-#   (3) BIOS supports INT 13h AH=42h (Extended Read Sectors From Drive).
+#   (2) 4-Level Paging supports 1GB-page,
+#   (3) The A20 line can be enabled via I/O Port 92h, and
+#   (4) BIOS supports INT 13h AH=42h (Extended Read Sectors From Drive).
 #
 # lmboot0 also assumes that:
-#   (4) All configuration will be re-done by loaded program, and
-#   (5) All messages should be printed by loaded program.
+#   (5) All configuration will be re-done by loaded program, and
+#   (6) All messages should be printed by loaded program.
 #
 # And loaded program is assumed that:
-#   (6) It is contiguously stored from LBA=1 in the boot drive,
-#   (7) Its memory area is from __lmb_main1_start to __lmb_main1_end, and
-#   (8) Its entry point is __bare_start.
+#   (7) It is contiguously stored from LBA=1 in the boot drive,
+#   (8) Its memory area is from __lmb_main1_start to __lmb_main1_end, and
+#   (9) Its entry point is __bare_start.
 #
 # Hence, lmboot0 simply loads a program using BIOS and executes it in
 # Long Mode without printing any message except fatal error messages.
@@ -40,12 +41,7 @@
 #
 # Note1: Above symbols are defined in the linker script.
 #
-# Note2: 32-bit registers work in Real Mode without any special settings.
-#        They can access to 20-bit addresss apace (1MB) by default.
-#        (If the A20 line is enabled, and Unreal Mode is enabled,
-#         they can access up to 32-bit addresss apace (4GB).)
-#
-# Note3: lmboot0 is written in att_sytax to write the following lines:
+# Note2: lmboot0 is written in att_sytax to write the following lines:
 #	ljmp	$0x0000, $lmboot0_rm16	# CS = 0x0000, IP = $lmboot0_rm16
 #	ljmp	$0x10, $lmboot0_lm64	# CS = 0x0010, IP = $lmboot0_lm64
 #
@@ -57,6 +53,11 @@
 #   # "pushw $0; pushw $addr; lretw".  But generated codes are:
 #   #   ea 10 7c 00 00     (5 bytes) for "ljmp $0, $addr"
 #   #   6a 00 68 11 7c cb  (6 bytes) for "pushw $0; pushw $addr; lretw"
+#
+# Note3: 32-bit registers work in Real Mode without any special settings.
+#        They can access to 20-bit addresss apace (1MB) by default.
+#        (If the A20 line is enabled, and Unreal Mode is enabled,
+#         they can access up to 32-bit addresss apace (4GB).)
 #
 # Technical references and summaries are listed at the tail of this file.
 #

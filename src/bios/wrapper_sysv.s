@@ -1,7 +1,7 @@
 #
 # SysV AMD64 ABI wrapper for lmbios1
 #
-# Summary of SysV AMD64 ABI:
+# Summary of the function calling sequence of SysV AMD64 ABI:
 #
 # (1) Return registers are RAX and RDX.
 #
@@ -54,10 +54,10 @@
 
 #########################################################################
 #
-# lmbios_call - Call BIOS function from Long Mode (wrapper)
+# lmbios_call - Call BIOS function from Long Mode (SysV AMD64 ABI wrapper)
 #
 # IN
-#	RDI	: Pointer to parameter structure (1st argument)
+#	RDI	: Address of struct LmbiosRegs (1st argument)
 #
 # OUT
 #	RAX	: Executed function number (0xFFFF if unsupported)
@@ -71,7 +71,7 @@ lmbios_call:
 	pushq	%rbp
 
 	# Call BIOS function.
-	movq	%rdi, %rbx	# Pointer to parameter structure
+	movq	%rdi, %rbx		# Address of struct LmbiosRegs
 	call	lmbios1_dispatch
 
 	# Restore RBX and RBP values.
@@ -100,6 +100,7 @@ lmbios_get_boot_drive_id:
 #########################################################################
 #
 # Reference:
+#	Section 3.2 "Function Calling Sequence" in
 #	System V Application Binary Interface
 #	AMD64 Architecture Processor Supplement
 #	(With LP64 and ILP32 Programming Models)
@@ -108,4 +109,10 @@ lmbios_get_boot_drive_id:
 #
 # Supplementary Resources:
 #	https://en.wikipedia.org/wiki/X86_calling_conventions
+#
+
+#
+# Related resource on generic ABI:
+#	System V Application Binary Interface Edition 4.1
+#	http://www.sco.com/developers/devspecs/
 #

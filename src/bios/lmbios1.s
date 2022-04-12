@@ -57,13 +57,13 @@
 #
 
 	.section .lmbios1, "xa"  # xa = executable, allocatable
-	.globl lmbios1_dispatch
+	.globl lmbios1_call
 	.globl lmbios1_dive
 
 
 #########################################################################
 #
-# lmbios1_dispatch - Call function
+# lmbios1_call - Call function
 #
 # IN
 #	RBX	: Address of struct LmbiosRegs
@@ -74,8 +74,36 @@
 
 	.p2align 4, 0x90  # 0x90 = NOP (= xchgl %eax, %eax)
 
-lmbios1_dispatch:
+lmbios1_call:
 	.code64
+
+	########################################################
+	#
+	# Check address ranges.
+	#
+
+	# Check whether RBX is in the 32-bit address space.
+	movq	%rbx, %rax
+	xorl	%eax, %eax	# Clear lower 32 bits of RAX
+	testq	%rax, %rax	# Check higher 32 bits of RAX
+	jne	lmbios1_unsupported
+
+	# Check whether RSP is in the 16-bit address space.
+	movq	%rsp, %rax
+	xorw	%ax, %ax	# Clear lower 16 bits of RAX
+	testq	%rax, %rax	# Check higher 48 bits of RAX
+	jne	lmbios1_unsupported
+
+	# Check whether lmbios1 is in the 16-bit address space.
+	movq	$lmbios1_end, %rax
+	xorw	%ax, %ax	# Clear lower 16 bits of RAX
+	testq	%rax, %rax	# Check higher 48 bits of RAX
+	jne	lmbios1_unsupported
+
+	########################################################
+	#
+	# Dispatch
+	#
 
 	# RAX = function number
 	xorq	%rax, %rax
@@ -83,11 +111,11 @@ lmbios1_dispatch:
 
 	# fun 0x00 - 0xFF : Software Interrupt (INT n)
 	cmp	$0xff, %ax
-	jbe	lmbios1_intn
+	jbe	lmbios1_intn	# Note: "jmp s" instead of "call s; retq"
 
 	# fun 0x100 - 0xFFFF : (reserved)
 
-lmbios1_dispatch_unsupported:
+lmbios1_unsupported:
 	movw	$0xffff, %ax	# 0xFFFF means unsupported.
 	retq
 
@@ -441,6 +469,8 @@ lmbios1_exec_subr_done:
 	# Return to the caller.
 	#
 	retw
+
+lmbios1_end:
 
 
 #########################################################################

@@ -65,14 +65,14 @@
 
 	.p2align 4, 0x90  # 0x90 = NOP (= xchgl %eax, %eax)
 
-lmbios_call:
+lmbios_call:				# Wrapper subroutine
 	# Save RBX and RBP values.
 	pushq	%rbx
 	pushq	%rbp
 
 	# Call BIOS function.
 	movq	%rdi, %rbx		# Address of struct LmbiosRegs
-	call	lmbios1_dispatch
+	call	lmbios1_call		# Main subroutine
 
 	# Restore RBX and RBP values.
 	popq	%rbp

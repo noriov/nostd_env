@@ -7,7 +7,7 @@
 #
 # lmboot0 assumes that:
 #   (1) CPU supports Long Mode,
-#   (2) 4-Level Paging supports 1GB-page,
+#   (2) CPU's 4-Level Paging supports 1GB-page,
 #   (3) The A20 line can be enabled via I/O Port 92h, and
 #   (4) BIOS supports INT 13h AH=42h (Extended Read Sectors From Drive).
 #
@@ -21,16 +21,17 @@
 #   (9) Its entry point is __bare_start.
 #
 # Hence, lmboot0 simply loads a program using BIOS and executes it in
-# Long Mode without printing any message except fatal error messages.
+# Long Mode without printing any messages except fatal error messages.
 #
 # Configurations made by lmboot0 are:
 #   (1) CPU runs in Long Mode,
-#   (2) Paging is Identity Mapped Paging (4GB) regardless of memory size,
+#   (2) Paging is Identity Mapped Paging,
+#       - Virtual address range is 0 to 4GB - 1 regardless of memory size,
 #       - One PML4 (4KB) with 1 entry at __lmb_pml4_start,
 #       - One PDPT (4KB) with 4 entries of 1GB-Pages at __lmb_pdpt_start,
 #   (3) Global Descriptor Table (GDT) has three selectors,
 #       - Selector 1: Code (64-bit mode) for CS
-#       - Selector 2: Code (16-bit mode) for CS
+#       - Selector 2: Code (16-bit mode) for CS (used in lmbios1)
 #       - Selector 3: Data for DS, ES, FS, GS and SS
 #       (GDT is stored at 0x7D98 - 0x7DB7)
 #   (4) Initial RSP = 0x7C00, and
@@ -45,7 +46,7 @@
 #	ljmp	$0x0000, $lmboot0_rm16	# CS = 0x0000, IP = $lmboot0_rm16
 #	ljmp	$0x10, $lmboot0_lm64	# CS = 0x0010, IP = $lmboot0_lm64
 #
-#   NASM allows to write as following, but intel_sytax seems not.
+#   NASM allows to write them as following, but intel_sytax seems not..
 #	jmp	0x0000:lmboot0_rm16	# CS = 0x0000, IP = lmboot0_rm16
 #	jmp	0x10:lmboot0_lm64	# CS = 0x0008, IP = lmboot0_lm64
 #
@@ -55,9 +56,8 @@
 #   #   6a 00 68 11 7c cb  (6 bytes) for "pushw $0; pushw $addr; lretw"
 #
 # Note3: 32-bit registers work in Real Mode without any special settings.
-#        They can access to 20-bit addresss apace (1MB) by default.
-#        (If the A20 line is enabled, and Unreal Mode is enabled,
-#         they can access up to 32-bit addresss apace (4GB).)
+#        Therefore, 20-bit address space (1MB) can be accessed by using
+#        32-bit register indirect addressing in addition to segment:offset.
 #
 # Technical references and summaries are listed at the tail of this file.
 #
@@ -162,7 +162,7 @@ lmboot0_rm16:
 	movl	$__lmb_page_tables_start, %edi	# EDI = start of page tables
 	movl	$__lmb_page_tables_end, %ecx	# ECX = end of page tables, now
 	subl	%edi, %ecx			# ECX = page table size, now
-	shr	$2, %ecx			# ECX = page table size / 4
+	shrl	$2, %ecx			# ECX = page table size / 4
 	xorl	%eax, %eax			# EAX = 0
 	rep stosl
 
@@ -196,9 +196,9 @@ lmboot0_rm16:
 	lgdt	(lmboot0_gdt_location)
 
 	# List of segment selectors.
-	.set	SEG_CODE64, 0x08	# Selector 1, GDT, RPL=0
-	.set	SEG_CODE16, 0x10	# Selector 2, GDT, RPL=0
-	.set	SEG_DATA,   0x18	# Selector 3, GDT, RPL=0
+	.set	SEG_CODE64, (1 << 3)	# Selector 1, GDT, RPL=0
+	.set	SEG_CODE16, (2 << 3)	# Selector 2, GDT, RPL=0
+	.set	SEG_DATA,   (3 << 3)	# Selector 3, GDT, RPL=0
 
 	########################################################
 	#
@@ -218,7 +218,7 @@ lmboot0_rm16:
 	movl	%eax, %cr4
 
 	# Set LME (Bit 8) in EFER  (LME = Long Mode Enable).
-	mov	$MSR_EFER, %ecx
+	movl	$MSR_EFER, %ecx
 	rdmsr
 	orl	$EFER_LME, %eax
 	wrmsr
@@ -412,20 +412,21 @@ lmboot0_load_blocks_amap:
 	# Allocate memory for the Disk Address Packet (DAP) on the stack.
 	subw	$0x10, %sp		# The size of DAP = 0x10
 
-	# Construct the disk address packet.
-	mov	%sp, %si		#offset:Disk Address Packet description
+	# Construct the Disk Address Packet (DAP).
+	movw	%sp, %si		#offset:Disk Address Packet description
 	movw	$0x0010, (%si)		# 00   : Size of DAP = 0x10
 					# 01   : (reserved)  = 0x00
 	movw	%cx, 0x02(%si)		# 02-03: Number of blocks to be loaded
 	movw	%bx, 0x04(%si)		# 04-05: Offset to memory buffer
-	xor	%bx, %bx	# BX=0
-	shr	$4, %ebx
+	xorw	%bx, %bx	# Clear lower 16-bit of EBX.
+	shrl	$4, %ebx	# Now, lower 16-bit of EBX holds segment.
 	movw	%bx, 0x06(%si)		# 06-07: Segment of memory buffer
 	movl	%eax, 0x08(%si)		# 08-0B: Start block (lower 32 bits)
 	xorl	%ebx, %ebx	# EBX=0
 	movl	%ebx, 0x0c(%si)		# 0C-0F: Start block (higher 32 bits)
 
 	# INT 13h AH=42h (Extended Read Sectors From Drive)
+	# DL = Drive ID, DS:SI = Address of Disk Address Packet (DAP)
 	movb	$0x42, %ah
 	int	$0x13
 
@@ -659,10 +660,4 @@ lmboot0_gdt_location:
 # Supplementary Resources for Master Boot Record (MBR)
 #	https://en.wikipedia.org/wiki/Master_boot_record
 #	https://wiki.osdev.org/MBR_(x86)
-#
-
-#
-# Supplementary Resources for Unreal Mode
-#	https://wiki.osdev.org/Unreal_Mode
-#	https://en.wikipedia.org/wiki/Unreal_mode
 #

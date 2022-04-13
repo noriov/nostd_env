@@ -54,7 +54,7 @@
 
 #########################################################################
 #
-# lmbios_call - Call BIOS function from Long Mode (SysV AMD64 ABI wrapper)
+# lmbios_call - Call a Real Mode function from Long Mode (wrapper)
 #
 # IN
 #	RDI	: Address of struct LmbiosRegs (1st argument)
@@ -70,9 +70,9 @@ lmbios_call:				# Wrapper subroutine
 	pushq	%rbx
 	pushq	%rbp
 
-	# Call BIOS function.
-	movq	%rdi, %rbx		# Address of struct LmbiosRegs
-	call	lmbios1_call		# Main subroutine
+	# Call main subroutine.
+	movq	%rdi, %rbx		# RBX = Address of struct LmbiosRegs
+	call	lmbios1_dispatch	# Main subroutine
 
 	# Restore RBX and RBP values.
 	popq	%rbp

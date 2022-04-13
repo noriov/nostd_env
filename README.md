@@ -8,15 +8,17 @@ Current status:
 
 * A Rust `no_std` program runs on QEMU in X86 Long Mode.
 * BIOS functions can be called from a Rust `no_std` program.
-* `nostd_env` runs on macOS 12 Monterey.
+* `nostd_env` runs on QEMU 6.2 macOS 12 Monterey.
 
-# lmboot0
+# Components
+
+## lmboot0
 
 lmboot0 is a small boot loader to run a Rust `no_std` program in X86
 Long Mode.  Because its size <= 0x1BE, it fits in a classical Master
 Boot Record (MBR).
 
-# lmbios1
+## lmbios1
 
 lmbios1 provides a method to call a Real Mode function from Long Mode.
 That is, it switches CPU operating mode from Long Mode to Real Mode,
@@ -26,20 +28,24 @@ Long Mode.
 
 # Required Software
 
-(1) Nightly Rust
+(1) Nightly Rust (cf. <https://www.rust-lang.org>)
 
 ```sh
 % rustup toolchain install nightly
 ```
 
-(3) llvm-objcopy
+(2) cargo-binutils (cf. <https://github.com/rust-embedded/cargo-binutils>)
 
 ```sh
 % cargo install cargo-binutils
 % rustup component add llvm-tools-preview
 ```
 
-(4) qemu-system-x86_64 (cf. <https://www.qemu.org>)
+(3) qemu-system-x86_64 (cf. <https://www.qemu.org>)
+
+```sh
+% brew install qemu
+```
 
 # How to build and run
 

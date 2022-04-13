@@ -1,12 +1,13 @@
 #! /bin/sh
 
-TARGET="x86_64-unknown-none"
 NAME=`grep name Cargo.toml | cut -d= -f2 | sed -e 's/[ "]*//g'`
-OUTPUT="target/$TARGET/debug/$NAME.bin"
 
-cargo objcopy --bin nostd_env -- -O binary $OUTPUT
+TARGET="x86_64-unknown-none"
+BINARY="target/$TARGET/debug/$NAME.bin"
+
+cargo objcopy -- -O binary $BINARY
 
 qemu-system-x86_64 \
-	-drive format=raw,file=$OUTPUT \
+	-drive format=raw,file=$BINARY \
 	-m 4G \
 	-monitor stdio -d int -no-reboot

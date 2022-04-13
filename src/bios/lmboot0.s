@@ -366,10 +366,10 @@ lmboot0_load_blocks_loop:
 	cmpl	$MAX_NBLK, %ecx
 	jbe	lmboot0_load_blocks_final
 
-	pushl	%ecx
-	mov	$MAX_NBLK, %ecx
+	pushw	%cx
+	movw	$MAX_NBLK, %cx
 	call	lmboot0_load_blocks_amap
-	pop	%ecx
+	popw	%cx
 	jc	lmboot0_load_blocks_done	# I/O error is detected.
 
 	# Update parameters for next loading.
@@ -395,7 +395,7 @@ lmboot0_load_blocks_done:
 #
 # IN
 #	EAX	: Logical Block Address (LBA)
-#	ECX	: Number of blocks (Maximum number = MAX_NBLK)
+#	CX	: Number of blocks (Maximum number = MAX_NBLK)
 #	EBX	: Memory address
 #	DL	: Drive ID
 #

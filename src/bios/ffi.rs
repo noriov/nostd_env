@@ -9,7 +9,8 @@ extern "C" {
 //
 // Function numbers
 //	  0x00 -   0xFF : Software Interrupt Number (INT n)
-//	0x0100 - 0xFFFE : (reserved)
+//	 0x100 -  0x4FF : (reserved)
+//	 0x500 - 0xFFFE : Subroutine address
 //	0xFFFF          : (unsupported)
 //
 

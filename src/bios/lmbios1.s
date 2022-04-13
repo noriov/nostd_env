@@ -25,8 +25,8 @@
 #
 #   (4) Performance is not a big issue.
 #       Typical use cases might be to build an experimental environment
-#       for learning purposes, a mockup program, a prototype program,
-#       or a short-lived program such as a loader of a kernel.
+#       for learning purposes, a prototype program, or a short-lived
+#       program such as a loader of a kernel.
 #
 # lmbios1 requires that:
 #
@@ -106,17 +106,30 @@ lmbios1_dispatch:
 	#
 	# Dispatch
 	#
+	#   Function number :
+	#     0x00 -   0xFF : Software Interrupt Number (INT n)
+	#    0x100 -  0x4FF : (reserved)
+	#    0x500 - 0xFFFE : Subroutine address
+	#   0xFFFF          : (unsupported)
+	#
 
 	# RAX = Function number
 	xorq	%rax, %rax
 	movw	0x00(%rbx), %ax
 
 	# fun 0x00 - 0xFF : Software Interrupt (INT n)
-	cmp	$0xff, %ax
+	cmpw	$0xff, %ax
 	jbe	lmbios1_intn	# Note: "jmp s" instead of "call s; retq"
 
-	# fun 0x0100 - 0xFFFE	: (reserved)
-	# fun 0xFFFF		: (unsupported)
+	# fun 0x100 - 0x4FF : (reserved)
+	cmpw	$0x4ff, %ax
+	jbe	lmbios1_unsupported
+
+	# fun 0x500 - 0xFFFE : Subroutine address
+	cmpw	$0xfffe, %ax
+	jbe	lmbios1_subr	# Note: "jmp s" instead of "call s; retq"
+
+	# fun 0xFFFF : (unsupported)
 
 lmbios1_unsupported:
 	movw	$0xffff, %ax	# 0xFFFF means unsupported.
@@ -128,7 +141,7 @@ lmbios1_unsupported:
 # lmbios1_intn - Call Software Interrupt (INT n)
 #
 # IN
-#	RAX	: Software Interrupt Number (INT n)
+#	RAX	: Software Interrupt Number (INT n) (0x00 - 0xFF)
 #	RBX	: Address of struct LmbiosRegs
 #
 	.p2align 4, 0x90  # 0x90 = NOP (= xchgl %eax, %eax)
@@ -165,21 +178,49 @@ lmbios1_intn:
 	# Input:
 	#     RBX = Address of struct LmbiosRegs (Input for lmbios1_exec)
 	#     RCX = Start address of "INT n; RET; NOP" (Input for lmbios1_exec)
-	#     RDX = Start address of subroutine lmbios1_exec (set below)
 	#
 	# For RBX, only lower 32-bits are referred in Real Mode.
-	# For RCX and RDX, only lower 16-bits are referred in Real Mode.
+	# For RCX, only lower 16-bits are referred in Real Mode.
 	#
-	movq	$lmbios1_exec, %rdx
 	call	lmbios1_dive
 
 	########################################################
 	#
 	# Return to the caller.
 	#
-	add	$8, %rsp	# Discard the above constructed instruction.
+	addq	$8, %rsp	# Discard the above constructed instruction.
 
 	popq	%rax		# Restore function number to RAX.
+	retq
+
+
+#########################################################################
+#
+# lmbios1_subr - Call subroutine
+#
+# IN
+#	RAX	: Subroutine address (0x500 - 0xFFFE)
+#	RBX	: Address of struct LmbiosRegs
+#
+	.p2align 4, 0x90  # 0x90 = NOP (= xchgl %eax, %eax)
+
+lmbios1_subr:
+	.code64
+
+	########################################################
+	#
+	# Dive into Real Mode and call specified function
+	#
+	# Input:
+	#     RBX = Address of struct LmbiosRegs (Input for lmbios1_exec)
+	#     RCX = Start address of subroutine (Input for lmbios1_exec)
+	#
+	# For RBX, only lower 32-bits are referred in Real Mode.
+	# For RCX, only lower 16-bits are referred in Real Mode.
+	#
+	movq	%rax, %rcx
+	call	lmbios1_dive
+
 	retq
 
 
@@ -277,12 +318,7 @@ lmbios1_dive_rm16:
 	#
 	movl	(%esp), %eax	# Restore a working register value.
 
-	# Call %dx via a bit complex method
-	# (See Appendix at the tail of this file for detailed information)
-	pushw	$lmbios1_dive_subr_done	# Instruction address next to retw
-	pushw	%dx			# Subroutine address
-	retw				# Pop %ip
-lmbios1_dive_subr_done:
+	call	lmbios1_exec
 
 	# Note: It is assumed that any settings for Long Mode are
 	#       never changed during this subroutine call.
@@ -396,9 +432,9 @@ lmbios1_exec:
 	# Note: %sp turns back to the same level as the figure above.
 
 	# Call original %cx via a bit complex method prepared above.
-	retw
-
+	retw				# Pop %ip
 lmbios1_exec_subr_done:
+
 	# Figure of the stack top at this moment:
 	#
 	# Offset    Stack contents
@@ -463,7 +499,7 @@ lmbios1_exec_subr_done:
 	# Note: FLAGS are not affected by MOV, PUSH and POP above.
 	pushf
 	popw	%ax
-	mov	%ax, 0x02(%ebp)		# FLAGS
+	movw	%ax, 0x02(%ebp)		# FLAGS
 
 	# Now, every resulting values have been saved to struct LmbiosRegs.
 
@@ -485,31 +521,32 @@ lmbios1_end:
 #
 # Appendix: How to call a subroutine pointed by 16-bit register
 #
-#   # Because we do not know how to write "call %dx" for 16-bit registers,
+#   # Because we do not know how to write "call %cx" for 16-bit registers,
 #   # we use a bit complex method described below.
 #
-# Suppose that we are calling a subroutine pointed by DX.
-# Here is an excerpt from lmbios1_dive:
+# Suppose that we are calling a subroutine pointed by CX.
+# Here is an excerpt from lmbios1_exec:
 #
-#	pushw	$lmbios1_dive_subr_done	# Instruction address next to retw
-#	pushw	%dx			# Subroutine address
+#	pushw	$lmbios1_exec_subr_done	# Instruction address next to retw
+#	pushw	%cx			# Subroutine address
+#
 #	retw				# Pop %ip
-#   lmbios1_dive_subr_done:
+#   lmbios1_exec_subr_done:
 #
 # Step 1. Push (1) instruction address next to retw, and
 #         push (2) subroutine entry address
 #         by the following two instructions:
 #
-#	pushw	$lmbios1_dive_subr_done
-#	pushw	%dx
+#	pushw	$lmbios1_exec_subr_done
+#	pushw	%cx
 #
 #    Here is a figure of the stack top at this moment:
 #
 #	Offset    Stack contents
 #	      +---------------------+
-#	00-01 | Subroutine address  | = DX value
+#	00-01 | Subroutine address  | = CX value
 #	      +---------------------+
-#	02-03 | Instruction address | = lmbios1_dive_subr_done
+#	02-03 | Instruction address | = lmbios1_exec_subr_done
 #	      +---------------------+
 #	04-   | Other data ..       |
 #	      +---------------------+
@@ -523,14 +560,14 @@ lmbios1_end:
 #
 #	Offset    Stack contents
 #	      +---------------------+
-#	00-01 | Instruction address | = lmbios1_dive_subr_done
+#	00-01 | Instruction address | = lmbios1_exec_subr_done
 #	      +---------------------+
 #	02-   | Other data ..       |
 #	      +---------------------+
 #
 #    Then, CPU executes the instructions in the subroutine pointed by DX.
 #
-# Step 3. When the subroutine pointed by DX ends, "retw" is executed
+# Step 3. When the subroutine pointed by CX ends, "retw" is executed
 #         to pop the next instruction address saved at the top of the
 #         stack into %ip.
 #
@@ -543,9 +580,9 @@ lmbios1_end:
 #
 #    Note: Stack Pointer (SP) turns back to the original level.
 #
-#    Then, CPU executes the instructions starting at lmbios1_dive_subr_done.
+#    Then, CPU executes the instructions starting at lmbios1_exec_subr_done.
 #    As shown above, the excerpt at the top of this Appendix emulates
-#    "call %dx".
+#    "call %cx".
 #
 
 

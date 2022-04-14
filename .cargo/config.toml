@@ -4,3 +4,4 @@ build-std-features = ["compiler-builtins-mem"]
 
 [build]
 target = "config/x86_64-unknown-none.json"
+rustflags = ["-Clink-args=-Map=target/x86_64-unknown-none/debug/linker.map"]

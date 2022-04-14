@@ -17,7 +17,7 @@
 #
 # And loaded program is assumed that:
 #   (7) It is contiguously stored from LBA=1 in the boot drive,
-#   (8) Its memory area is from __lmb_main1_start to __lmb_main1_end, and
+#   (8) Its memory area is from MAIN1_START to MAIN1_END - 1, and
 #   (9) Its entry point is __bare_start.
 #
 # Hence, lmboot0 simply loads a program using BIOS and executes it in
@@ -27,8 +27,8 @@
 #   (1) CPU runs in Long Mode,
 #   (2) Paging is Identity Mapped Paging,
 #       - Virtual address range is 0 to 4GB - 1 regardless of memory size,
-#       - One PML4 (4KB) with 1 entry at __lmb_pml4_start,
-#       - One PDPT (4KB) with 4 entries of 1GB-Pages at __lmb_pdpt_start,
+#       - One PML4 (4KB) with 1 entry at PML4_START,
+#       - One PDPT (4KB) with 4 entries of 1GB-Pages at PDPT_START,
 #   (3) Global Descriptor Table (GDT) has three selectors,
 #       - Selector 1: Code (64-bit mode) for CS
 #       - Selector 2: Code (16-bit mode) for CS (used in lmbios1)
@@ -40,7 +40,7 @@
 # Because the size of lmboot0 <= 0x1BE, lmboot0 fits in a classical MBR.
 # It works on QEMU Ver 6.2.0 with SeaBIOS Rel 1.15.0 as of Apr 2022.
 #
-# Note1: Above symbols are defined in the linker script.
+# Note1: The values of above symbols are imported from the linker script.
 #
 # Note2: lmboot0 is written in att_sytax to write the following lines:
 #	ljmp	$0x0000, $lmboot0_rm16	# CS = 0x0000, IP = $lmboot0_rm16
@@ -57,7 +57,7 @@
 #
 # Note3: 32-bit registers work in Real Mode without any special settings.
 #        Therefore, 20-bit address space (1MB) can be accessed by using
-#        32-bit register indirect addressing in addition to segment:offset.
+#        32-bit register indirect addressing in addition to SEGMENT:OFFSET.
 #
 # Technical references and summaries are listed at the tail of this file.
 #
@@ -67,6 +67,14 @@
 	.globl __lmboot0_boot_drive_id
 	.code16
 
+	# The values of these symbols are imported from the linker script.
+	.set	PGTBL_START, __lmb_page_tables_start
+	.set	PML4_START, __lmb_pml4_start
+	.set	PDPT_START, __lmb_pdpt_start
+	.set	PGTBL_END, __lmb_page_tables_end
+	.set	STACK_BOTTOM, __lmb_stack_bottom
+	.set	MAIN1_START, __lmb_main1_start
+	.set	MAIN1_END, __lmb_main1_end
 
 #########################################################################
 #
@@ -83,17 +91,17 @@ __lmboot0_entry:
 	#
 	# States: CPU = Real Mode, Code segment = 16-bit mode.
 	#
-	xorw	%ax, %ax			# AX = 0x0000
-	movw	%ax, %ds			# DS = 0x0000
-	movw	%ax, %es			# ES = 0x0000
-	movw	%ax, %ss			# SS = 0x0000
+	xorw	%ax, %ax		# AX = 0x0000
+	movw	%ax, %ds		# DS = 0x0000
+	movw	%ax, %es		# ES = 0x0000
+	movw	%ax, %ss		# SS = 0x0000
 
-	movw	$__lmb_stack_bottom, %sp	# SP = 0x7c00
-	ljmp	$0x0000, $lmboot0_rm16		# CS = 0, IP = $lmboot0_rm16
+	movw	$STACK_BOTTOM, %sp	# SP = 0x7c00
+	ljmp	$0x0000, $lmboot0_rm16	# CS = 0, IP = $lmboot0_rm16
 lmboot0_rm16:
 
 	# Initialize the direction flag.
-	cld					# DF = 0 (Direction flag)
+	cld				# DF = 0 (Direction flag)
 
 	########################################################
 	#
@@ -109,11 +117,11 @@ lmboot0_rm16:
 	# Note2: %dl already has the boot drive ID.
 	#
 
-	# Set $__lmb_main1_start to EBX.
-	movl	$__lmb_main1_start, %ebx
+	# Set $MAIN1_START to EBX.
+	movl	$MAIN1_START, %ebx
 
-	# Number of bytes: ECX = $__lmb_main1_end - $__lmb_main1_start
-	movl	$__lmb_main1_end, %ecx
+	# Number of bytes: ECX = $MAIN1_END - $MAIN1_START
+	movl	$MAIN1_END, %ecx
 	subl	%ebx, %ecx
 
 	# Number of blocks: ECX = (ECX + 511) / 512
@@ -158,33 +166,33 @@ lmboot0_rm16:
 	#   (2) One PDPT (Size: 4KB) with 4 entries pointing to 1GB-Pages
 	#
 
-	# Clear page table area.   # Note: Alreay DF = 0 (Direction flag)
-	movl	$__lmb_page_tables_start, %edi	# EDI = start of page tables
-	movl	$__lmb_page_tables_end, %ecx	# ECX = end of page tables, now
-	subl	%edi, %ecx			# ECX = page table size, now
-	shrl	$2, %ecx			# ECX = page table size / 4
-	xorl	%eax, %eax			# EAX = 0
+	# Clear page table area. # Alreay DF = 0 (Direction flag)
+	movl	$PGTBL_START, %edi	# EDI = start of page tables
+	movl	$PGTBL_END, %ecx	# ECX = end of page tables, now
+	subl	%edi, %ecx		# ECX = page table size, now
+	shrl	$2, %ecx		# ECX = page table size / 4
+	xorl	%eax, %eax		# EAX = 0
 	rep stosl
 
 	# Set PML4 start address to ECX, and set PDPT start address to EDX.
-	movl	$__lmb_pml4_start, %ecx		# ECX = PML4 start address
-	movl	$__lmb_pdpt_start, %edx		# EDX = PDPT start address
+	movl	$PML4_START, %ecx	# ECX = PML4 start address
+	movl	$PDPT_START, %edx	# EDX = PDPT start address
 
 	# Construct PML4 table (with 1 entry) that is the root of page tables.
-	movl	%edx, %eax			# EAX = PDPT start address
-	orl	$3, %eax			# Bit 0: Present, Bit 1: R/W
-	movl	%eax, (%ecx)			# 0th entry of PML4 table
+	movl	%edx, %eax		# EAX = PDPT start address
+	orl	$3, %eax		# Bit 0: Present, Bit 1: R/W
+	movl	%eax, (%ecx)		# 0th entry of PML4 table
 
 	# Construct the 0th PDPT (with 4 entries for four 1GB-Pages).
-	movl	$0x83, %eax	# Bit 0: Present, Bit 1: R/W, Bit 7: 1GB-Page
+	movl	$0x83, %eax # Bit 0: Present, Bit 1: R/W, Bit 7: 1GB-Page
 	movl	$(1 << 30), %ebx # EBX = 1GB
-	movl	%eax, 0x00(%edx)		# 0th entry of PDPT (0GB - 1GB)
-	addl	%ebx, %eax	# EAX += 1GB
-	movl	%eax, 0x08(%edx)		# 1st entry of PDPT (1GB - 2GB)
-	addl	%ebx, %eax	# EAX += 1GB
-	movl	%eax, 0x10(%edx)		# 2nd entry of PDPT (2GB - 3GB)
-	addl	%ebx, %eax	# EAX += 1GB
-	movl	%eax, 0x18(%edx)		# 3rd entry of PDPT (3GB - 4GB)
+	movl	%eax, 0x00(%edx)	# 0th entry of PDPT (0GB - 1GB)
+	addl	%ebx, %eax # EAX += 1GB
+	movl	%eax, 0x08(%edx)	# 1st entry of PDPT (1GB - 2GB)
+	addl	%ebx, %eax # EAX += 1GB
+	movl	%eax, 0x10(%edx)	# 2nd entry of PDPT (2GB - 3GB)
+	addl	%ebx, %eax # EAX += 1GB
+	movl	%eax, 0x18(%edx)	# 3rd entry of PDPT (3GB - 4GB)
 
 	# Set the root of the page tables (PML4 table address) to CR3.
 	movl	%ecx, %cr3

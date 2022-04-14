@@ -229,10 +229,10 @@ lmbios1_subr:
 # lmbios1_dive - Dive into Real Mode and call specified subroutine.
 #
 # IN
-#	DX	: Subroutine to be called (only lower 16 bits are referred)
+#	EBX	: Address of struct LmbiosRegs
+#	CX	: Entry point of subroutine
 #
-# Note: All general purpose 32-bit registers are passed to the specified
-#       subroutine so that they can be used as parameters.
+# Scratched: RAX, RBX, RCX, RDX, RSI, RDI, RBP
 #
 	.p2align 4, 0x90  # 0x90 = NOP (= xchgl %eax, %eax)
 
@@ -375,9 +375,9 @@ lmbios1_dive_lm64:
 #
 # IN
 #	EBX	: Address of struct LmbiosRegs
-#	CX	: Entry point of subroutine (only lower 16 bits are referred)
+#	CX	: Entry point of subroutine
 #
-# Scratched: EAX, ECX, EDX, EBX, ESI, EDI, EBP
+# Scratched: EAX, ECX, EDX, ESI, EDI, EBP
 #
 
 lmbios1_exec:
@@ -565,7 +565,7 @@ lmbios1_end:
 #	02-   | Other data ..       |
 #	      +---------------------+
 #
-#    Then, CPU executes the instructions in the subroutine pointed by DX.
+#    Then, CPU executes the instructions in the subroutine pointed by CX.
 #
 # Step 3. When the subroutine pointed by CX ends, "retw" is executed
 #         to pop the next instruction address saved at the top of the

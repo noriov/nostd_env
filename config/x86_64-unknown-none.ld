@@ -17,9 +17,11 @@ SECTIONS {
     . = 0x7c00;
     __lmb_stack_bottom = .;
 
-    .boot_main : {
+    .boot0 : {
         *(.lmboot0)   /* 0x7c00-: Its size must be exactly 512 bytes. */
+    }
 
+    .main1 : {
         __lmb_main1_start = .;
         *(.lmbios1)   /* 0x7e00-: Its highest addr must be less than 64KB. */
 
@@ -29,14 +31,24 @@ SECTIONS {
         *(.bss*)
         *(.tdata*)
         *(.tbss*)
+
+        /* Not sure .eh_frame* and .rel.eh_frame* should be here
+         * or can be discarded. */
+        *(.eh_frame*)
+        *(.rel.eh_frame*)
+
         . = ALIGN(512);
         __lmb_main1_end = .;
     }
 
-    .user_data : {
-        /* Any size of additional data can be appended here.
-         * Because they will not be loaded by lmboot0,
-         * loaded program should read / write them via BIOS, etc. */
+    .data2 : {
+        /* Additional data (e.g. file system, program) can be appended here.
+         * Because data in .data2 will not be loaded by lmboot0,
+         * loaded program in .main1 should read / write them via BIOS, etc. */
+    }
+
+    /DISCARD/ : {
+        *(.debug*)   /* Discard to simplify linker map */
     }
 }
 

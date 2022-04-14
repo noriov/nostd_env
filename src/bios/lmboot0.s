@@ -438,8 +438,10 @@ lmboot0_load_blocks_amap:
 	movb	$0x42, %ah
 	int	$0x13
 
-	# Deallocate memory for the Disk Address Packet
+	# Deallocate memory for the Disk Address Packet (without changing CF).
+	pushf
 	addw	$0x10, %sp		# The size of DAP = 0x10
+	popf
 
 	# Restore saved register values.
 	popw	%si

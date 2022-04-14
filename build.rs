@@ -4,5 +4,4 @@ fn main() {
     println!("cargo:rerun-if-changed=src/bios/wrapper_sysv.s");
     println!("cargo:rerun-if-changed=config/x86_64-unknown-none.json");
     println!("cargo:rerun-if-changed=config/x86_64-unknown-none.ld");
-    println!("cargo:rerun-if-changed=build.rs");
 }

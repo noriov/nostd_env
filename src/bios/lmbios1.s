@@ -499,7 +499,7 @@ lmbios1_exec_subr_done:
 	# Note: FLAGS are not affected by MOV, PUSH and POP above.
 	pushf
 	popw	%ax
-	movw	%ax, 0x02(%ebp)		# FLAGS
+	movw	%ax, 0x02(%ebx)		# FLAGS
 
 	# Now, every resulting values have been saved to struct LmbiosRegs.
 

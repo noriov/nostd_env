@@ -107,7 +107,7 @@ lmboot0_rm16:
 	#
 	# Save boot drive ID.
 	#
-	movb	%dl, (__lmboot0_boot_drive_id)
+	movb	%dl, __lmboot0_boot_drive_id
 
 	########################################################
 	#

@@ -93,7 +93,7 @@ lmbios_call:				# Wrapper subroutine
 
 lmbios_get_boot_drive_id:
 	xorq	%rax, %rax
-	movb	(__lmboot0_boot_drive_id), %al
+	movb	__lmboot0_boot_drive_id, %al
 	retq
 
 

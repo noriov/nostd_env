@@ -416,8 +416,10 @@ lmboot0_load_blocks_amap:
 	pushl	%ebx
 	pushw	%ax
 	pushw	%si
+	pushw	%bp
 
 	# Allocate memory for the Disk Address Packet (DAP) on the stack.
+	movw	%sp, %bp		# Save %sp to %bp
 	subw	$0x10, %sp		# The size of DAP = 0x10
 
 	# Construct the Disk Address Packet (DAP).
@@ -439,11 +441,10 @@ lmboot0_load_blocks_amap:
 	int	$0x13
 
 	# Deallocate memory for the Disk Address Packet (without changing CF).
-	pushf
-	addw	$0x10, %sp		# The size of DAP = 0x10
-	popf
+	movw	%bp, %sp		# Restore %sp from %bp
 
 	# Restore saved register values.
+	popw	%bp
 	popw	%si
 	popw	%ax
 	popl	%ebx

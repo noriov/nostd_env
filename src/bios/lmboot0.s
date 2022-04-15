@@ -8,7 +8,7 @@
 # lmboot0 assumes that:
 #   (1) CPU supports Long Mode,
 #   (2) CPU's 4-Level Paging supports 1GB-page,
-#   (3) The A20 line can be enabled via I/O Port 92h, and
+#   (3) The A20 line can be enabled via I/O Port 92h Bit 1, and
 #   (4) BIOS supports INT 13h AH=42h (Extended Read Sectors From Drive).
 #
 # lmboot0 also assumes that:
@@ -34,13 +34,15 @@
 #       - Selector 2: Code (16-bit mode) for CS (used in lmbios1)
 #       - Selector 3: Data for DS, ES, FS, GS and SS
 #       (GDT is stored at 0x7D98 - 0x7DB7)
-#   (4) Initial RSP = 0x7C00, and
+#   (4) Initial RSP = STACK_END, and
 #   (5) Interrupts are disabled.
 #
 # Because the size of lmboot0 <= 0x1BE, lmboot0 fits in a classical MBR.
 # It works on QEMU Ver 6.2.0 with SeaBIOS Rel 1.15.0 as of Apr 2022.
 #
 # Note1: The values of above symbols are imported from the linker script.
+#        They can be changed by editing the linker script or
+#        by editing .set directives below.
 #
 # Note2: lmboot0 is written in att_sytax to write the following lines:
 #	ljmp	$0x0000, $lmboot0_rm16	# CS = 0x0000, IP = $lmboot0_rm16
@@ -72,7 +74,7 @@
 	.set	PML4_START, __lmb_pml4_start
 	.set	PDPT_START, __lmb_pdpt_start
 	.set	PGTBL_END, __lmb_page_tables_end
-	.set	STACK_BOTTOM, __lmb_stack_bottom
+	.set	STACK_END, __lmb_stack_end
 	.set	MAIN1_START, __lmb_main1_start
 	.set	MAIN1_END, __lmb_main1_end
 
@@ -96,7 +98,7 @@ __lmboot0_entry:
 	movw	%ax, %es		# ES = 0x0000
 	movw	%ax, %ss		# SS = 0x0000
 
-	movw	$STACK_BOTTOM, %sp	# SP = 0x7c00
+	movw	$STACK_END, %sp		# SP = $STACK_END
 	ljmp	$0x0000, $lmboot0_rm16	# CS = 0, IP = $lmboot0_rm16
 lmboot0_rm16:
 
@@ -117,7 +119,7 @@ lmboot0_rm16:
 	# Note2: %dl already has the boot drive ID.
 	#
 
-	# Set $MAIN1_START to EBX.
+	# Memory address: EBX = $MAIN1_START
 	movl	$MAIN1_START, %ebx
 
 	# Number of bytes: ECX = $MAIN1_END - $MAIN1_START
@@ -128,19 +130,29 @@ lmboot0_rm16:
 	addl	$511, %ecx
 	shrl	$9, %ecx
 
+	# Logical Block Address (LBA): EAX = 1
+	movl	$1, %eax
+
 	# Load blocks from drive.
-	movl	$1, %eax			# LBA = 1
+	# Input:
+	#   EAX : Logical Block Address (LBA)
+	#   ECX : Number of blocks
+	#   EBX : Memory address
+	#   DL  : Drive ID
+	# Output:
+	#   CF  : 0 if successful, 1 if failed.
+	#
 	call	lmboot0_load_blocks
 	jc	lmboot0_loading_failed
 
 	########################################################
 	#
-	# Enable the A20 line via I/O Port 92h.
+	# Enable the A20 line via I/O Port 92h Bit 1.
 	#
-	# Note: It is assumed that I/O Port 92h is supported.
+	# Note: It is assumed that I/O Port 92h Bit 1 is supported.
 	#
 	in	$0x92, %al
-	or	$0x02, %al
+	or	$0x02, %al	# Bit 1 = ON
 	out	%al, $0x92
 
 	########################################################
@@ -156,7 +168,7 @@ lmboot0_rm16:
 
 	########################################################
 	#
-	# Construct 4-Level Paging page tables for Long Mode.
+	# Construct page tables for 4-Level Paging of Long Mode.
 	#
 	# Identity Paging from 0 to 4GB - 1 (32-bit address space)
 	# regardless of available memory size.
@@ -168,8 +180,8 @@ lmboot0_rm16:
 
 	# Clear page table area. # Alreay DF = 0 (Direction flag)
 	movl	$PGTBL_START, %edi	# EDI = start of page tables
-	movl	$PGTBL_END, %ecx	# ECX = end of page tables, now
-	subl	%edi, %ecx		# ECX = page table size, now
+	movl	$PGTBL_END, %ecx	# ECX = end of page tables (for now)
+	subl	%edi, %ecx		# ECX = page table size (for now)
 	shrl	$2, %ecx		# ECX = page table size / 4
 	xorl	%eax, %eax		# EAX = 0
 	rep stosl
@@ -181,7 +193,7 @@ lmboot0_rm16:
 	# Construct PML4 table (with 1 entry) that is the root of page tables.
 	movl	%edx, %eax		# EAX = PDPT start address
 	orl	$3, %eax		# Bit 0: Present, Bit 1: R/W
-	movl	%eax, (%ecx)		# 0th entry of PML4 table
+	movl	%eax, 0x00(%ecx)	# 0th entry of PML4 table
 
 	# Construct the 0th PDPT (with 4 entries for four 1GB-Pages).
 	movl	$0x83, %eax # Bit 0: Present, Bit 1: R/W, Bit 7: 1GB-Page
@@ -213,6 +225,7 @@ lmboot0_rm16:
 	# Enter Long Mode.
 	#
 
+	# Define control register flags related to Long Mode settings.
 	.set	CR0_PE, (1 << 0)	# PE = Protected Mode Enable
 	.set	CR0_PG, (1 << 31)	# PG = Paging
 	.set	CR4_PAE, (1 << 5)	# PAE = Physical Address Extension
@@ -306,7 +319,7 @@ lmboot0_no_long_mode_msg:
 
 
 #
-# lmboot0_print_asciz - Print C String (Null-terminated string).
+# lmboot0_print_asciz - Print Null-terminated string.
 #
 # IN
 #	SI	: Null-terminated string
@@ -391,6 +404,7 @@ lmboot0_load_blocks_final:
 
 lmboot0_load_blocks_done:
 	# Restore saved register values.
+	# Note: FLAGS are not affected by POP below.
 	popl	%ecx
 	popl	%ebx
 	popl	%eax

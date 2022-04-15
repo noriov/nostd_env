@@ -54,7 +54,7 @@
 
 #########################################################################
 #
-# lmbios_call - Call a Real Mode function from Long Mode (wrapper)
+# lmbios_call - Call a Real Mode function from Long Mode (a wrapper)
 #
 # IN
 #	RDI	: Address of struct LmbiosRegs (1st argument)
@@ -83,7 +83,7 @@ lmbios_call:				# Wrapper subroutine
 
 ########################################################################
 #
-# lmbios_get_boot_drive_id - Return boot drive ID save by lmboot0.
+# lmbios_get_boot_drive_id - Return boot drive ID saved by lmboot0.
 #
 # OUT
 #	RAX	: Boot Drive ID

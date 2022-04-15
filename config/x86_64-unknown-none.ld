@@ -2,7 +2,7 @@ ENTRY(__lmboot0_entry)
 
                       /* Comments below briefly shows memory map. */
 SECTIONS {
-                      /* 0x0000-0x03ff: Interrupt vector table (IVT) */
+                      /* 0x0000-0x03ff: Interrupt Vector Table (IVT) */
                       /* 0x0400-0x04ff: BIOS Data Area (BDA) */
                       /* 0x0500-0x0fff: free */
     . = 0x1000;
@@ -15,16 +15,17 @@ SECTIONS {
                       /* 0x3000-0x????: free */
                       /* 0x????-0x7c00: stack */
     . = 0x7c00;
-    __lmb_stack_bottom = .;
+    __lmb_stack_end = .;
 
     .boot0 : {
-        *(.lmboot0)   /* 0x7c00-: Its size must be exactly 512 bytes. */
+        *(.lmboot0)   /* 0x7c00-0x7dff: Copy of Master Boot Record (MBR) */
     }
 
     .main1 : {
         __lmb_main1_start = .;
         *(.lmbios1)   /* 0x7e00-: Its highest addr must be less than 64KB. */
 
+        /* A Rust program follows lmbios1. */
         *(.text*)
         *(.rodata*)
         *(.data*)

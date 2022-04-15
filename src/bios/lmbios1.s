@@ -108,8 +108,8 @@ lmbios1_dispatch:
 	#
 	#   Function number :
 	#     0x00 -   0xFF : Software Interrupt Number (INT n)
-	#    0x100 -  0x4FF : (reserved)
-	#    0x500 - 0xFFFE : Subroutine address
+	#    0x100 -  0x3FF : (reserved)
+	#    0x400 - 0xFFFE : Subroutine address
 	#   0xFFFF          : (unsupported)
 	#
 
@@ -121,11 +121,11 @@ lmbios1_dispatch:
 	cmpw	$0xff, %ax
 	jbe	lmbios1_intn	# Note: "jmp s" instead of "call s; retq"
 
-	# fun 0x100 - 0x4FF : (reserved)
-	cmpw	$0x4ff, %ax
+	# fun 0x100 - 0x3FF : (reserved)
+	cmpw	$0x3ff, %ax
 	jbe	lmbios1_unsupported
 
-	# fun 0x500 - 0xFFFE : Subroutine address
+	# fun 0x0400 - 0xFFFE : Subroutine address
 	cmpw	$0xfffe, %ax
 	jbe	lmbios1_subr	# Note: "jmp s" instead of "call s; retq"
 

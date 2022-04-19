@@ -31,3 +31,9 @@ pub struct LmbiosRegs {	// Offset:
 }
 
 const _: () = assert!(size_of::<LmbiosRegs>() == 0x24);
+
+impl LmbiosRegs {
+    pub unsafe fn call(&mut self) -> u16 {
+	lmbios_call(self)
+    }
+}

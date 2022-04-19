@@ -9,13 +9,12 @@ impl TextWriter {
 	    // INT 10h AH=0Eh: Teletype Output
 	    // AL: Character, BH: Page Number, BL: Color
 	    // cf. https://en.wikipedia.org/wiki/INT_10H
-	    let mut regs = bios::ffi::LmbiosRegs {
+	    bios::ffi::LmbiosRegs {
 		fun: 0x10,			// INT 10h AH=0Eh
 		eax: 0x0E00 | byte as u32,	// AL: Character = `byte`
 		ebx: 0x000F,			// BL: Color = 15 (white)
 		..Default::default()
-	    };
-	    bios::ffi::lmbios_call(&mut regs);
+	    }.call();
 	}
     }
 

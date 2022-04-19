@@ -38,15 +38,14 @@ pub extern "C" fn __bare_start() -> ! {
 	// AL: #Sectors, ECX: Cylinder and Sector, DH: Head, DL: Drive ID,
 	// ES:BX : Buffer Address.
 	// cf. https://en.wikipedia.org/wiki/INT_13H
-	let mut regs = bios::ffi::LmbiosRegs {
+	bios::ffi::LmbiosRegs {
 	    fun: 0x13,				// INT 13h AH=02h
 	    eax: 0x0201,			// AL: Number of sectors = 1
 	    ecx: 0x0001,			// Cylinder = 0, Secotr = 1
 	    edx: 0x0000 | drive_id as u32,	// Head = 0, Drive = drive_id
 	    ebx: buf_addr as u32,		// Buffer address
 	    ..Default::default()
-	};
-	bios::ffi::lmbios_call(&mut regs);
+	}.call();
 
 	println!();
 	println!("Boot Drive ID = {:#x}", drive_id);

@@ -6,6 +6,7 @@
 mod bios;
 mod mu;
 mod query_smap;
+mod test_alloc;
 mod text_writer;
 
 extern crate alloc;
@@ -76,6 +77,9 @@ pub extern "C" fn __bare_start() -> ! {
     // Initialize the global allocator (size = 1MB)
     init_global_alloc(1024 * 1024);
 
+    // Test: allocator and heap manager
+    test_alloc::try_sieve(30, 100, 10000, &GLOBAL_ALLOC);
+
     halt_forever();
 }
 
@@ -108,6 +112,8 @@ fn init_global_alloc(size: usize) -> Vec<query_smap::AddrRange> {
 //   to be exchanged with BIOS.  Their base address and size in bytes
 //   are specified in their declarations.
 // - GLOBAL_ALLOC is the heap area for the global allocator.
+//   Its base address and size in bytes are set in init_global_alloc()
+//   above.
 //
 
 // 0x0500 - 0x2FFF (10KB+) : Heap area in 16-bit address space

@@ -1,4 +1,8 @@
+pub mod api;
 pub mod ffi;
+
+pub use api::{LmbiosRegs, get_boot_drive_id};
+
 
 use core::arch::global_asm;
 

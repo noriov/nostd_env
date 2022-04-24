@@ -1,17 +1,29 @@
 #![no_std]
 #![no_main]
+#![feature(alloc_error_handler)]
+#![feature(allocator_api)]
 
 mod bios;
+mod mu;
 mod text_writer;
 
+extern crate alloc;
+use alloc::alloc::Layout;
 use core::arch::asm;
 use core::panic::PanicInfo;
+
+use crate::mu::{MuAlloc16, MuAlloc32};
 
 
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
     println!("{}", info);
     halt_forever();
+}
+
+#[alloc_error_handler]
+fn alloc_error_handler(layout: Layout) -> ! {
+    panic!("Failed to allocate {:?}", layout)
 }
 
 fn halt_forever() -> ! {
@@ -61,3 +73,23 @@ pub extern "C" fn __bare_start() -> ! {
 
     halt_forever();
 }
+
+
+//
+// Three allocators are initialized:
+// - ALLOC_UNDER16 (in 16-bit address space) and ALLOC_UNDER20
+//   (in 20-bit address space) are heap areas maily for buffers
+//   to be exchanged with BIOS.  Their base address and size in bytes
+//   are specified in their declarations.
+// - GLOBAL_ALLOC is the heap area for the global allocator.
+//
+
+// 0x0500 - 0x2FFF (10KB+) : Heap area in 16-bit address space
+static ALLOC_UNDER16: MuAlloc16 = unsafe { MuAlloc16::heap(0x0500, 0x2b00) };
+
+// 0x60000 - 0x7FFFF (128KB) : Heap area in 20-bit address space
+static ALLOC_UNDER20: MuAlloc16 = unsafe { MuAlloc16::heap(0x60000, 0x20000) };
+
+// Heap area for global allocator in 32-bit address space
+#[global_allocator]
+static GLOBAL_ALLOC: MuAlloc32 = MuAlloc32::uninit();

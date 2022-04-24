@@ -7,6 +7,7 @@ mod bios;
 mod mu;
 mod query_smap;
 mod test_alloc;
+mod test_diskio;
 mod text_writer;
 
 extern crate alloc;
@@ -30,6 +31,7 @@ fn alloc_error_handler(layout: Layout) -> ! {
 }
 
 fn halt_forever() -> ! {
+    println!("halt");
     loop {
 	unsafe {
 	    asm!("hlt");
@@ -40,38 +42,18 @@ fn halt_forever() -> ! {
 
 #[no_mangle]
 pub extern "C" fn __bare_start() -> ! {
-    println!("Hello, world!");
-
-    // The unsafe block below
-    // reads the first 512 bytes of data from the boot drive,
-    // and show the first 8 bytes.
+    // Test: Text output using BIOS
     unsafe {
-	let drive_id = bios::ffi::lmbios_get_boot_drive_id();
-	let buf_addr = 0x5000 as *const u8;
+	bios::ffi::debug_clear_stack_area();
+	println!("Hello, world!");
+	println!("Stack max = {:#x}", bios::ffi::debug_clear_stack_area());
+    }
 
-	// INT 13h AH=02h: Read Sectors From Drive
-	// AL: #Sectors, ECX: Cylinder and Sector, DH: Head, DL: Drive ID,
-	// ES:BX : Buffer Address.
-	// cf. https://en.wikipedia.org/wiki/INT_13H
-	bios::ffi::LmbiosRegs {
-	    fun: 0x13,				// INT 13h AH=02h
-	    eax: 0x0201,			// AL: Number of sectors = 1
-	    ecx: 0x0001,			// Cylinder = 0, Secotr = 1
-	    edx: 0x0000 | drive_id as u32,	// Head = 0, Drive = drive_id
-	    ebx: buf_addr as u32,		// Buffer address
-	    ..Default::default()
-	}.call();
-
-	println!();
-	println!("Boot Drive ID = {:#x}", drive_id);
-	println!("Data in LBA=1 of the boot drive are loaded at {:#x}",
-		 buf_addr as usize);
-	println!("{:#x}: {:#x} {:#x} {:#x} {:#x} {:#x} {:#x} {:#x} {:#x} ..",
-		 buf_addr as usize,
-		 *buf_addr.offset(0), *buf_addr.offset(1),
-		 *buf_addr.offset(2), *buf_addr.offset(3),
-		 *buf_addr.offset(4), *buf_addr.offset(5),
-		 *buf_addr.offset(6), *buf_addr.offset(7));
+    // Test: Disk I/O using BIOS
+    unsafe {
+	bios::ffi::debug_clear_stack_area();
+	test_diskio::try_read_sectors(&ALLOC_UNDER16);
+	println!("Stack max = {:#x}", bios::ffi::debug_clear_stack_area());
     }
 
     // Initialize the global allocator (size = 1MB)
@@ -80,6 +62,7 @@ pub extern "C" fn __bare_start() -> ! {
     // Test: allocator and heap manager
     test_alloc::try_sieve(30, 100, 10000, &GLOBAL_ALLOC);
 
+    // Halt
     halt_forever();
 }
 

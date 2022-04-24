@@ -32,7 +32,7 @@ pub extern "C" fn __bare_start() -> ! {
     // and show the first 8 bytes.
     unsafe {
 	let drive_id = bios::ffi::lmbios_get_boot_drive_id();
-	let buf_addr = 0x4000 as *const u8;
+	let buf_addr = 0x5000 as *const u8;
 
 	// INT 13h AH=02h: Read Sectors From Drive
 	// AL: #Sectors, ECX: Cylinder and Sector, DH: Head, DL: Drive ID,

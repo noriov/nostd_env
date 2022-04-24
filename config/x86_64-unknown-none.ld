@@ -4,16 +4,22 @@ ENTRY(__lmboot0_entry)
 SECTIONS {
                       /* 0x0000-0x03ff: Interrupt Vector Table (IVT) */
                       /* 0x0400-0x04ff: BIOS Data Area (BDA) */
-                      /* 0x0500-0x0fff: free */
-    . = 0x1000;
+
+    . = 0x0500;
+    __lmb_heap16_start = .;
+    . += 0x2b00;      /* 0x0500-0x2fff: Heap Area (10KB+) */
+    __lmb_heap16_end = .;
+
+    . = 0x3000;
     __lmb_page_tables_start = .;
     __lmb_pml4_start = .;
-    . += 0x1000;      /* 0x1000-0x1fff: Page Map Level 4 (PML4) Table */
+    . += 0x1000;      /* 0x3000-0x3fff: Page Map Level 4 (PML4) Table */
     __lmb_pdpt_start = .;
-    . += 0x1000;      /* 0x2000-0x2fff: Page Directory Pointer Table (PDPT) */
+    . += 0x1000;      /* 0x4000-0x4fff: Page Directory Pointer Table (PDPT) */
     __lmb_page_tables_end = .;
-                      /* 0x3000-0x????: free */
-                      /* 0x????-0x7c00: stack */
+
+    __lmb_stack_start = .;
+                      /* 0x5000-0x7bff: Stack Area (11KB) */
     . = 0x7c00;
     __lmb_stack_end = .;
 
@@ -47,6 +53,11 @@ SECTIONS {
          * Because data in .data2 will not be loaded by lmboot0,
          * loaded program in .main1 should read / write them via BIOS, etc. */
     }
+
+    . = 0x40000;
+    __lmb_heap32_start = .;
+    . += 0x40000;     /* 0x40000-0x7ffff: Heap Area (256KB) */
+    __lmb_heap32_end = .;
 
     /DISCARD/ : {
         *(.debug*)   /* Discard to simplify linker map */

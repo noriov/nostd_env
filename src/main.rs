@@ -5,10 +5,12 @@
 
 mod bios;
 mod mu;
+mod query_smap;
 mod text_writer;
 
 extern crate alloc;
 use alloc::alloc::Layout;
+use alloc::vec::Vec;
 use core::arch::asm;
 use core::panic::PanicInfo;
 
@@ -71,7 +73,31 @@ pub extern "C" fn __bare_start() -> ! {
 		 *buf_addr.offset(6), *buf_addr.offset(7));
     }
 
+    // Initialize the global allocator (size = 1MB)
+    init_global_alloc(1024 * 1024);
+
     halt_forever();
+}
+
+
+fn init_global_alloc(size: usize) -> Vec<query_smap::AddrRange> {
+    const ADDR_1MB: u64 = 0x10_0000;
+
+    let addr_ranges = query_smap::query_smap(&ALLOC_UNDER16, &ALLOC_UNDER20);
+
+    for entry in &addr_ranges {
+	#[allow(unused_parens)]
+	if (entry.atype == query_smap::ATYPE_USABLE &&
+	    entry.addr >= ADDR_1MB && entry.length as usize >= size) {
+	    let base = entry.addr as usize;
+	    unsafe {
+		GLOBAL_ALLOC.lock().init(base, size);
+	    }
+	    return addr_ranges.to_vec();
+	}
+    }
+
+    panic!("Failed to initialize the global allocator");
 }
 
 

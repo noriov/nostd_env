@@ -8,6 +8,7 @@ Current status:
 
 * A Rust `no_std` program runs on QEMU in X86 Long Mode.
 * BIOS functions can be called from a Rust `no_std` program.
+* Rust alloc library is working with a first-fit memory allocator.
 * `nostd_env` runs on QEMU 6.2 macOS 12 Monterey.
 
 # Components
@@ -20,11 +21,19 @@ Boot Record (MBR).
 
 ## lmbios1
 
-lmbios1 provides a method to call a Real Mode function from Long Mode.
+lmbios1 provides a method to call Real Mode functions from Long Mode.
 That is, it switches CPU operating mode from Long Mode to Real Mode,
 calls a function in Real Mode, then switches back to Long Mode.  As
 the name suggests, its main purpose is to call BIOS functions from
 Long Mode.
+
+## Micro (mu) Library
+
+A small library containing:
+
+* MuAlloc - An implementation of alloc::GlobalAlloc and alloc::Allocator
+* MuHeap - A First-Fit Memory Allocator using Doubly Linked List
+* MuMutex - A Mutual Exclusion Primitive using Spin Lock
 
 # Required Software
 
@@ -57,7 +66,7 @@ Then, edit `src/main.rs` and other files as you like.
 % ./run-qemu.sh
 ```
 
-On other systems: (to be described)
+On other systems: (To be described..)
 
  * * *
 

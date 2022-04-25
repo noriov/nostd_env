@@ -40,7 +40,7 @@
 # Because the size of lmboot0 <= 0x1BE, lmboot0 fits in a classical MBR.
 # It works on QEMU Ver 6.2.0 with SeaBIOS Rel 1.15.0 as of Apr 2022.
 #
-# Note1: The values of above symbols are imported from the linker script.
+# Note1: The values of symbols above are imported from the linker script.
 #        They can be changed by editing the linker script or
 #        by editing .set directives below.
 #
@@ -58,8 +58,8 @@
 #   #   6a 00 68 11 7c cb  (6 bytes) for "pushw $0; pushw $addr; lretw"
 #
 # Note3: 32-bit registers work in Real Mode without any special settings.
-#        Therefore, 20-bit address space (1MB) can be accessed by using
-#        32-bit register indirect addressing in addition to SEGMENT:OFFSET.
+#        Therefore, 20-bit address space (1MB) can be accessed using
+#        register indirect addressing mode in addition to SEGMENT:OFFSET.
 #
 # Technical references and summaries are listed at the tail of this file.
 #
@@ -77,6 +77,7 @@
 	.set	STACK_END, __lmb_stack_end
 	.set	MAIN1_START, __lmb_main1_start
 	.set	MAIN1_END, __lmb_main1_end
+
 
 #########################################################################
 #
@@ -120,18 +121,18 @@ lmboot0_rm16:
 	#
 
 	# Memory address: EBX = $MAIN1_START
-	movl	$MAIN1_START, %ebx
+	movl	$MAIN1_START, %ebx	# EBX = Start address of main1
 
 	# Number of bytes: ECX = $MAIN1_END - $MAIN1_START
-	movl	$MAIN1_END, %ecx
-	subl	%ebx, %ecx
+	movl	$MAIN1_END, %ecx	# ECX = End address of main1 (for now)
+	subl	%ebx, %ecx		# ECX = Size in bytes of main1
 
 	# Number of blocks: ECX = (ECX + 511) / 512
-	addl	$511, %ecx
-	shrl	$9, %ecx
+	addl	$511, %ecx		# block size - 1 is added to round up
+	shrl	$9, %ecx		# ECX = Size in blocks of main1
 
 	# Logical Block Address (LBA): EAX = 1
-	movl	$1, %eax
+	movl	$1, %eax		# EAX = start LBA of main1
 
 	# Load blocks from drive.
 	# Input:
@@ -207,7 +208,7 @@ lmboot0_rm16:
 	movl	%eax, 0x18(%edx)	# 3rd entry of PDPT (3GB - 4GB)
 
 	# Set the root of the page tables (PML4 table address) to CR3.
-	movl	%ecx, %cr3
+	movl	%ecx, %cr3		# CR3 = PML4 table address
 
 	########################################################
 	#
@@ -278,10 +279,8 @@ lmboot0_lm64:
 	# Start loaded program.
 	#
 	# Note: Because the address of __bare_start is up to 20 bits,
-	#       16-bit addressing "jmp" cannot be used to jump there.
-	#       In order to use 32-bit relative addressing "jmp",
-	#       code segment selector has been changed from 16-bit mode
-	#       to 64-bit mode.  Now, jump to __bare_start!
+	#       16-bit addressing "jmp" cannot be used.  Instead,
+	#       32-bit relative addressing "jmp" must be used.
 	#
 	# States: CPU = Long Mode, Code segment = 64-bit mode.
 	#
@@ -360,7 +359,12 @@ lmboot0_print_asciz_done:
 #
 # lmboot0_load_blocks - Load contiguous logical blocks from drive.
 #
-# Note: It is assumed that BIOS supports INT 13h AH=42h.
+# Note1: It is assumed that BIOS supports INT 13h AH=42h.
+#
+# Note2: The maximum number of blocks that can be loaded by one
+#         "INT 13h AH=42h" call seems to vary depending on BIOSes.
+#        The possibly lowest number of the maximum number of blocks
+#        is said to be 127.
 #
 # IN
 #	EAX	: Logical Block Address (LBA)
@@ -373,7 +377,7 @@ lmboot0_print_asciz_done:
 #
 
 	.set	BLK_SIZE, 512	# Logical Block Size
-	.set	MAX_NBLK, 127	# Maximum Number of Blocks (for some BIOSes)
+	.set	MAX_NBLK, 127	# Maximum Number of Blocks (see Note2 above)
 
 lmboot0_load_blocks:
 	# Save working register values.
@@ -404,7 +408,7 @@ lmboot0_load_blocks_final:
 
 lmboot0_load_blocks_done:
 	# Restore saved register values.
-	# Note: FLAGS are not affected by POP below.
+	# Note: FLAGS are not affected by POPs below.
 	popl	%ecx
 	popl	%ebx
 	popl	%eax
@@ -677,7 +681,7 @@ lmboot0_gdt_location:
 #
 
 #
-# Supplementary Resource for INT 13h AH=42h: Extended Read Sectors From Drive
+# Supplementary Resource for INT 13h AH=42h (Extended Read Sectors From Drive)
 #	https://en.wikipedia.org/wiki/INT_13H#INT_13h_AH=42h:_Extended_Read_Sectors_From_Drive
 #
 

@@ -1,15 +1,21 @@
+//
+// TextWriter - A Text Writer using BIOS INT 10h AH=0Eh (Teletype Output)
+//
+
 use core::fmt;
+
 use crate::bios;
+
 
 pub struct TextWriter;
 
 impl TextWriter {
     pub fn write_byte(&mut self, byte: u8) {
 	unsafe {
-	    // INT 10h AH=0Eh: Teletype Output
+	    // INT 10h AH=0Eh (Teletype Output)
 	    // AL: Character, BH: Page Number, BL: Color
 	    // cf. https://en.wikipedia.org/wiki/INT_10H
-	    bios::ffi::LmbiosRegs {
+	    bios::LmbiosRegs {
 		fun: 0x10,			// INT 10h AH=0Eh
 		eax: 0x0E00 | byte as u32,	// AL: Character = `byte`
 		ebx: 0x000F,			// BL: Color = 15 (white)
@@ -46,7 +52,6 @@ macro_rules! println {
 	$crate::print!("{}\r\n", format_args!( $($arg)* ))
     };
 }
-
 
 #[macro_export]
 macro_rules! print {

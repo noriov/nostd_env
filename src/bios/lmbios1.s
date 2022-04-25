@@ -17,7 +17,7 @@
 #
 #   (2) Interrupt Vector Table (IVT) has not been changed.
 #       BIOS is called via software interrupts, which refers to IVT.
-#       If IVT is changed, unexpected function may be called.
+#       If IVT is changed, an unexpected function may be called.
 #       IVT resides from 0x0000 to 0x03FF (Size: 1KB).
 #
 #   (3) Performance is not a big issue.
@@ -26,28 +26,30 @@
 #       program such as a loader of a kernel.
 #
 #   (4) It is not called simultaneously.
-#       Mutual exclusion is not implemented.
+#       If mutual exclusion of BIOS calls is necessary, it must be
+#       implemented in caller side.
 #
 # lmbios1 requires that:
 #
 #   (1) Code address and stack address are less than 64KB.
 #       In Real Mode, Instruction Pointer (IP) and Stack Pointer (SP)
-#       need to be copyable to 16-bit registers, while lmbios1 keeps
-#       all segment registers zero when it runs.
+#       are 16-bit, while lmbios1 initializes all segment registers to
+#       zero.
 #
 #       Note: Only during a Real Mode function call, DS and ES are
 #       changed as specified in struct LmbiosRegs.
 #
 #   (2) Data addresses passed to lmbios1 are less than 4GB.
-#       In Real Mode, data addresses (e.g. addresses of struct LmbiosRegs)
-#       need to be copyable to 32-bit regsiters.
+#       In Real Mode, 32-bit registers work but 64-bit register don't.
+#       Hence, data addresses (e.g. addresses of struct LmbiosRegs)
+#       must be in 32-bit address space.
 #
 #       Note: Thanks to Unreal Mode effect, lmbios1 can access up to
-#       32-bit address space (4GB) by using 32-bit register indirect
-#       addressing even in Real Mode.
+#       32-bit address space (4GB) by using register indirect addressing
+#       even in Real Mode.
 #
-#   (3) Any address passed to Real Mode legacy function is less than 1MB.
-#       Real Mode legacy function accesses memory using 16-bit segment
+#   (3) Any address passed to Real Mode legacy functions is less than 1MB.
+#       Real Mode legacy functions access memory using 16-bit segment
 #       register and 16-bit offset (i.e., 20-bit address space).
 #       Therefore, if memory address should be exchanged with
 #       Real Mode legacy function (e.g. BIOS) it should be located

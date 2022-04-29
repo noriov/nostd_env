@@ -5,6 +5,7 @@
 
 mod bios;
 mod mu;
+mod query_vbe;
 mod test_alloc;
 mod test_diskio;
 mod text_writer;
@@ -44,6 +45,9 @@ fn halt_forever() -> ! {
 pub extern "C" fn __bare_start() -> ! {
     // Initialize the global allocator (size = 1MB)
     init_global_alloc(1024 * 1024);
+
+    // Query VESA BIOS Extentions.
+    query_vbe::query_vbe(1280, 1024, 24, &ALLOC_UNDER20);
 
     // Try Checking Stack Usages of BIOS Text Output and Disk I/O.
     {

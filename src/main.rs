@@ -9,6 +9,7 @@ mod query_smap;
 mod test_alloc;
 mod test_diskio;
 mod text_writer;
+mod x86;
 
 extern crate alloc;
 use alloc::alloc::Layout;

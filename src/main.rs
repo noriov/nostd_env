@@ -51,7 +51,9 @@ pub extern "C" fn __bare_start() -> ! {
 	bios::check_stack_usage();
 	println!("Try Checking Stack Usages");
 	println!("Stack max = {:#x}", bios::check_stack_usage());
-	test_diskio::try_read_sectors(&ALLOC_UNDER16);
+	test_diskio::try_read_sectors1(&ALLOC_UNDER16);
+	println!("Stack max = {:#x}", bios::check_stack_usage());
+	test_diskio::try_read_sectors2(&ALLOC_UNDER16);
 	println!("Stack max = {:#x}", bios::check_stack_usage());
     }
 

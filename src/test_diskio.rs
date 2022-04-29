@@ -1,52 +1,68 @@
 //
-// Test a simple Disk I/O by usinig BIOS.
+// Test a simple Disk I/O usinig
+//	BIOS INT 13h AH=02h (Read Sectors From Drive) and
+//	BIOS INT 13h AH=42h (Extended Read Sectors From Drive)
 //
-// Reads the first 512 bytes of data from the boot drive,
-// and show the first 8 bytes.
+// Reads a couple of sectors of data from the boot drive,
+// and show the first 16 bytes.
 //
 
-use alloc::vec::Vec;
 use core::alloc::Allocator;
 
 use crate::bios;
-use crate::println;
+use crate::{print, println};
+use crate::x86::X86Addr;
 
 
-pub fn try_read_sectors<A16>(alloc: A16)
+pub fn try_read_sectors1<A>(alloc: A)
 where
-    A16: Copy + Allocator
+    A: Allocator
 {
-    // Allocate 512 bytes of read buffer in 16-bit address space.
-    let mut buf: Vec<u8, A16> = Vec::with_capacity_in(512, alloc);
-    buf.resize(512, 0);
-    let buf_addr = buf.as_ptr() as usize;
-    assert!(buf_addr < (1_usize << 16));
-
-    // Get the boot drive ID.
+    // Read sectors: CHS=(0, 0, 1), #sectors=3
+    let (cylinder, head, sector, nsectors) = (0, 0, 1, 3);
     let drive_id = bios::get_boot_drive_id();
 
-    unsafe {
-	// INT 13h AH=02h (Read Sectors From Drive)
-	// AL: #Sectors, ECX: Cylinder and Sector, DH: Head, DL: Drive ID,
-	// ES:BX : Buffer Address.
-	// cf. https://en.wikipedia.org/wiki/INT_13H
-	bios::LmbiosRegs {
-	    fun: 0x13,				// INT 13h AH=02h
-	    eax: 0x0201,			// AL: Number of sectors = 1
-	    ecx: 0x0001,			// Cylinder = 0, Secotr = 1
-	    edx: 0x0000 | drive_id as u32,	// Head = 0, Drive = drive_id
-	    ebx: buf_addr as u32,		// Buffer address
-	    ..Default::default()
-	}.call();
-    }
+    print!("Read sectors: CHS=({}, {}, {}), nsectors={}, drive={:#x} ... ",
+	   cylinder, head, sector, nsectors, drive_id);
 
-    // Print the results.
+    match bios::Int13h02h::call(drive_id, cylinder, head, sector, nsectors,
+				alloc) {
+	Some(vec) => {
+	    println!("OK!");
+	    dump(&vec, 16);
+	},
+	None => {
+	    println!("failed");
+	},
+    }
+}
+
+pub fn try_read_sectors2<A>(alloc: A)
+where
+    A: Allocator
+{
+    // Read sectors: LBA=1, #sectors=3
+    let (lba, nsectors) = (1, 3);
+    let drive_id = bios::get_boot_drive_id();
+
+    print!("Read sectors: LBA={}, nsectors={}, drive={:#x} ... ",
+	   lba, nsectors, drive_id);
+
+    match bios::Int13h42h::call(drive_id, lba, nsectors, alloc) {
+	Some(vec) => {
+	    println!("OK!");
+	    dump(&vec, 16);
+	},
+	None => {
+	    println!("failed");
+	},
+    }
+}
+
+fn dump(buf: &[u8], n: usize) {
+    print!("{:#x}:", buf.get_linear_addr());
+    for i in 0 .. n {
+	print!(" {:02x}", buf[i]);
+    }
     println!();
-    println!("Boot Drive ID = {:#x}", drive_id);
-    println!("Data in LBA=1 of the boot drive are loaded at {:#x}",
-	     buf_addr);
-    println!("{:#x}: {:#x} {:#x} {:#x} {:#x} {:#x} {:#x} {:#x} {:#x} ..",
-	     buf_addr,
-	     buf[0], buf[1], buf[2], buf[3],
-	     buf[4], buf[5], buf[6], buf[7]);
 }

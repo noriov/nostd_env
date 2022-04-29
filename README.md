@@ -19,13 +19,17 @@ lmboot0 is a small boot loader to run a Rust `no_std` program in X86
 Long Mode.  Because its size <= 0x1BE, it fits in a classical Master
 Boot Record (MBR).
 
+Source: src/bios/asm/lmboot0.s
+
 ## lmbios1
 
-lmbios1 provides a method to call Real Mode functions from Long Mode.
+lmbios1 provides a method to call a Real Mode function from Long Mode.
 That is, it switches CPU operating mode from Long Mode to Real Mode,
 calls a function in Real Mode, then switches back to Long Mode.  As
 the name suggests, its main purpose is to call BIOS functions from
 Long Mode.
+
+Source: src/bios/asm/lmbios1.s
 
 ## Micro (mu) Library
 
@@ -34,6 +38,8 @@ A small library containing:
 * MuAlloc - An implementation of alloc::GlobalAlloc and alloc::Allocator
 * MuHeap - A First-Fit Memory Allocator using Doubly Linked List
 * MuMutex - A Mutual Exclusion Primitive using Spin Lock
+
+Source: src/mu
 
 # Required Software
 
@@ -59,18 +65,12 @@ A small library containing:
 # How to build and run
 
 On macOS: At the top directory, enter the following commands.
-Then, edit `src/main.rs` and other files as you like.
 
 ```sh
 % cargo build
 % ./run-qemu.sh
 ```
 
+Then, make a git branch and edit files as you like.
+
 On other systems: (To be described..)
-
- * * *
-
-Fore more information, please see the description at the head of each
-assembly source file and the technical references at the tail of each
-assembly source file.  These assembly source files can be found under
-`src/bios`.

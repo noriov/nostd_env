@@ -5,7 +5,6 @@
 
 mod bios;
 mod mu;
-mod query_smap;
 mod test_alloc;
 mod test_diskio;
 mod text_writer;
@@ -65,20 +64,20 @@ pub extern "C" fn __bare_start() -> ! {
 }
 
 
-fn init_global_alloc(size: usize) -> Vec<query_smap::AddrRange> {
+fn init_global_alloc(size: usize) -> Vec<bios::AddrRange> {
     const ADDR_1MB: u64 = 0x10_0000;
 
-    let addr_ranges = query_smap::query_smap(&ALLOC_UNDER16, &ALLOC_UNDER20);
-
-    for entry in &addr_ranges {
-	#[allow(unused_parens)]
-	if (entry.atype == query_smap::ATYPE_USABLE &&
-	    entry.addr >= ADDR_1MB && entry.length as usize >= size) {
-	    let base = entry.addr as usize;
-	    unsafe {
-		GLOBAL_ALLOC.lock().init(base, size);
+    if let Some(addr_ranges) = bios::Int15he820h::call(&ALLOC_UNDER20) {
+	for entry in &addr_ranges {
+	    #[allow(unused_parens)]
+	    if (entry.is_usable() &&
+		entry.addr >= ADDR_1MB && entry.length as usize >= size) {
+		let base = entry.addr as usize;
+		unsafe {
+		    GLOBAL_ALLOC.lock().init(base, size);
+		}
+		return addr_ranges.to_vec();
 	    }
-	    return addr_ranges.to_vec();
 	}
     }
 

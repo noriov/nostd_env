@@ -40,7 +40,7 @@ where
 		    inner_vec.push(0_usize);	// Method grow may be called
 		}
 		inner_vec.truncate(i * 2 + 1);
-		inner_vec.shrink_to(i * 2 + 1);	// Method shrink is called
+		inner_vec.shrink_to_fit();	// Method shrink is called
 		sieve_vec.push(inner_vec);
 	    }
 	    sieve_vec.shrink_to(n);	// Method shrink is called

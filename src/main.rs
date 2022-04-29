@@ -42,22 +42,17 @@ fn halt_forever() -> ! {
 
 #[no_mangle]
 pub extern "C" fn __bare_start() -> ! {
-    // Test: Text output using BIOS
-    unsafe {
-	bios::ffi::debug_clear_stack_area();
-	println!("Hello, world!");
-	println!("Stack max = {:#x}", bios::ffi::debug_clear_stack_area());
-    }
-
-    // Test: Disk I/O using BIOS
-    unsafe {
-	bios::ffi::debug_clear_stack_area();
-	test_diskio::try_read_sectors(&ALLOC_UNDER16);
-	println!("Stack max = {:#x}", bios::ffi::debug_clear_stack_area());
-    }
-
     // Initialize the global allocator (size = 1MB)
     init_global_alloc(1024 * 1024);
+
+    // Try Checking Stack Usages of BIOS Text Output and Disk I/O.
+    {
+	bios::check_stack_usage();
+	println!("Try Checking Stack Usages");
+	println!("Stack max = {:#x}", bios::check_stack_usage());
+	test_diskio::try_read_sectors(&ALLOC_UNDER16);
+	println!("Stack max = {:#x}", bios::check_stack_usage());
+    }
 
     // Test: allocator and heap manager
     test_alloc::try_sieve(30, 100, 10000, &GLOBAL_ALLOC);

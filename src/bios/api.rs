@@ -1,7 +1,7 @@
 use core::ops::Deref;
 use core::mem::size_of;
 
-use super::ffi::{lmbios_call, lmbios_get_boot_drive_id};
+use super::ffi;
 use crate::mu::MuMutex;
 
 
@@ -35,7 +35,7 @@ const _: () = assert!(size_of::<LmbiosRegs>() == 0x24);
 impl LmbiosRegs {
     pub unsafe fn call(&mut self) -> u16 {
 	let _guard = BIOS_TICKET.lock();
-	lmbios_call(self)
+	ffi::lmbios_call(self)
     }
 }
 
@@ -67,6 +67,12 @@ static BIOS_TICKET: LmbiosMutex = LmbiosMutex::ticket();
 
 pub fn get_boot_drive_id() -> u8 {
     unsafe {
-	lmbios_get_boot_drive_id()
+	ffi::lmbios_get_boot_drive_id()
+    }
+}
+
+pub fn check_stack_usage() -> usize {
+    unsafe {
+	ffi::debug_clear_stack_area() as usize
     }
 }

@@ -7,7 +7,7 @@ extern "C" {
     pub fn lmbios_get_boot_drive_id() -> u8;
 
     // defined in debug_helper.s
-    pub fn debug_clear_stack_area() -> usize;
+    pub fn debug_clear_stack_area() -> u64;
 }
 
 extern {

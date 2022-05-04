@@ -127,6 +127,18 @@ pub struct AddrRange {
 const _: () = assert!(size_of::<AddrRange>() == 0x18);
 
 impl AddrRange {
+    // Address Range Types
+    pub const TYPE_USABLE	: u32 = 1;
+    pub const TYPE_RESERVED	: u32 = 2;
+    pub const TYPE_ACPI		: u32 = 3;
+    pub const TYPE_NVS		: u32 = 4;
+    pub const TYPE_UNUSABLE	: u32 = 5;
+    pub const TYPE_DISABLED	: u32 = 6;
+    pub const TYPE_PERSISTENT	: u32 = 7;
+
+    // Extended Attributes
+    pub const ATTR_DEFAULT	: u32 = 1;  // Bit 0 must be set to 1.
+
     fn uninit() -> Self {
 	unsafe {
 	    MaybeUninit::<Self>::uninit().assume_init()
@@ -135,23 +147,21 @@ impl AddrRange {
 
     fn initial_value() -> Self {
 	Self {
-	    attr: 1,  // for compatibility with ACPI 3.0 entry
+	    attr: Self::ATTR_DEFAULT,  // for compatibility with ACPI 3.0 entry
 	    ..Self::uninit()
 	}
-    }
-
-    pub fn is_usable(&self) -> bool {
-	self.atype == 1  // Usable memory
     }
 
     pub fn print(&self) {
 	let type_name =
 	    match self.atype {
-		1 => "Usable",
-		2 => "Unusable",
-		3 => "ACPI Reclaimable",
-		4 => "ACPI Non-Volatile Storage",
-		5 => "Containing Bad Memory",
+		Self::TYPE_USABLE	=> "Usable",
+		Self::TYPE_RESERVED	=> "Reserved",
+		Self::TYPE_ACPI		=> "ACPI Reclaimable",
+		Self::TYPE_NVS		=> "ACPI Non-Volatile Storage",
+		Self::TYPE_UNUSABLE	=> "Containing Bad Memory",
+		Self::TYPE_DISABLED	=> "Disabled",
+		Self::TYPE_PERSISTENT	=> "Persistent Memory",
 		_ => "unknown",
 	    };
 

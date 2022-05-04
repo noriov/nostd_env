@@ -1,7 +1,9 @@
-//
-// Test the specified allocator and heap manager
-// by repeating `Sieve of Eratosthenes` implemented with Vec and VecDeque.
-//
+/*!
+
+Tests a memory allocator and a heap manager.
+
+ */
+
 
 use alloc::collections::VecDeque;
 use alloc::vec::Vec;
@@ -10,6 +12,10 @@ use core::alloc::Allocator;
 use crate::{print, println};
 
 
+///
+/// Tests a memory allocator and a heap manager by repeating
+/// `Sieve of Eratosthenes` implemented with Vec and VecDeque.
+///
 pub fn try_sieve<A>(n: usize, m: usize, count: usize, alloc: A)
 where
     A: Copy + Allocator

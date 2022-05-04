@@ -1,6 +1,11 @@
-//
-// TextWriter - A Text Writer using BIOS INT 10h AH=0Eh (Teletype Output)
-//
+/*!
+
+Provides a text writer using BIOS.
+
+TextWriter - A Text Writer using BIOS INT 10h AH=0Eh (Teletype Output)
+
+ */
+
 
 use core::fmt;
 
@@ -32,6 +37,7 @@ impl fmt::Write for TextWriter {
 }
 
 
+/// Prints to the console with a newline.
 #[macro_export]
 macro_rules! println {
     () => {
@@ -42,6 +48,7 @@ macro_rules! println {
     };
 }
 
+/// Prints to the console.
 #[macro_export]
 macro_rules! print {
     ( $($arg:tt)* ) => {

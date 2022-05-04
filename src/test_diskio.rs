@@ -1,11 +1,9 @@
-//
-// Test a simple Disk I/O usinig
-//	BIOS INT 13h AH=02h (Read Sectors From Drive) and
-//	BIOS INT 13h AH=42h (Extended Read Sectors From Drive)
-//
-// Reads a couple of sectors of data from the boot drive,
-// and show the first 16 bytes.
-//
+/*!
+
+Tests simple disk I/O using BIOS.
+
+ */
+
 
 use core::alloc::Allocator;
 
@@ -14,9 +12,17 @@ use crate::{print, println};
 use crate::x86::X86GetAddr;
 
 
-pub fn try_read_sectors1<A>(alloc: A)
+
+///
+/// Tests simple disk I/O using
+/// BIOS INT 13h AH=02h (Read Sectors From Drive).
+///
+/// It reads a couple of sectors of data from the boot drive, and
+/// shows the first 16 bytes.
+///
+pub fn try_read_sectors1<A20>(alloc20: A20)
 where
-    A: Allocator
+    A20: Allocator
 {
     // Read sectors: CHS=(0, 0, 1), #sectors=3
     let (cylinder, head, sector, nsectors) = (0, 0, 1, 3);
@@ -26,7 +32,7 @@ where
 	   cylinder, head, sector, nsectors, drive_id);
 
     match bios::int13h02h::call(drive_id, cylinder, head, sector, nsectors,
-				alloc) {
+				alloc20) {
 	Some(vec) => {
 	    println!("OK!");
 	    dump(&vec, 16);
@@ -37,9 +43,16 @@ where
     }
 }
 
-pub fn try_read_sectors2<A>(alloc: A)
+///
+/// Tests simple disk I/O using
+/// BIOS INT 13h AH=42h (Extended Read Sectors From Drive).
+///
+/// It reads a couple of sectors of data from the boot drive, and
+/// shows the first 16 bytes.
+///
+pub fn try_read_sectors2<A20>(alloc20: A20)
 where
-    A: Allocator
+    A20: Allocator
 {
     // Read sectors: LBA=1, #sectors=3
     let (lba, nsectors) = (1, 3);
@@ -48,7 +61,7 @@ where
     print!("Read sectors: LBA={}, nsectors={}, drive={:#x} ... ",
 	   lba, nsectors, drive_id);
 
-    match bios::int13h42h::call(drive_id, lba, nsectors, alloc) {
+    match bios::int13h42h::call(drive_id, lba, nsectors, alloc20) {
 	Some(vec) => {
 	    println!("OK!");
 	    dump(&vec, 16);

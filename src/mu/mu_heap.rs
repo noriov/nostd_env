@@ -91,19 +91,8 @@ impl<I> MuHeap<I>
 where
     I: MuHeapIndex
 {
-    // Initializer for static heap declaration.
-    // Heap area will be built in method alloc().
-    pub const unsafe fn heap(given_base: usize, given_size: usize) -> Self {
-	Self {
-	    given_base,
-	    given_size,
-	    ..Self::uninit()
-	}
-    }
-
-    // Initializer for static heap declaration.
-    // Heap area must be specified later by using method init().
-    pub const fn uninit() -> Self {
+    // Returns all-zero initializer for a static heap declaration.
+    const fn zero() -> Self {
 	Self {
 	    given_base: 0,
 	    given_size: 0,
@@ -114,8 +103,24 @@ where
 	}
     }
 
-    // Post-initializer for const method uninit().
-    pub unsafe fn init(&mut self, given_base: usize, given_size: usize) {
+    // Initializer for static heap declaration.
+    // Heap area will be built in method alloc().
+    pub const unsafe fn heap(given_base: usize, given_size: usize) -> Self {
+	Self {
+	    given_base,
+	    given_size,
+	    ..Self::zero()
+	}
+    }
+
+    // Initializer for static heap declaration.
+    // Heap area must be specified later by using method set_heap.
+    pub const fn noheap() -> Self {
+	Self::zero()
+    }
+
+    // Post-initializer for const method noheap().
+    pub unsafe fn set_heap(&mut self, given_base: usize, given_size: usize) {
 	debug_assert!(self.given_base == 0 && self.given_size == 0 &&
 		      self.base == 0 && self.ncells == I::ZERO);
 

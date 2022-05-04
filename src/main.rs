@@ -69,7 +69,7 @@ fn init_global_alloc(size: usize) -> Vec<bios::AddrRange> {
 		entry.addr >= ADDR_1MB && entry.length as usize >= size) {
 		let base = entry.addr as usize;
 		unsafe {
-		    GLOBAL_ALLOC.lock().init(base, size);
+		    GLOBAL_ALLOC.lock().set_heap(base, size);
 		}
 		return addr_ranges.to_vec();
 	    }
@@ -99,4 +99,4 @@ static ALLOC_UNDER20: MuAlloc16 = unsafe { MuAlloc16::heap(0x60000, 0x20000) };
 
 // Heap area for global allocator in 32-bit address space
 #[global_allocator]
-static GLOBAL_ALLOC: MuAlloc32 = MuAlloc32::uninit();
+static GLOBAL_ALLOC: MuAlloc32 = MuAlloc32::noheap();

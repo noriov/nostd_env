@@ -39,9 +39,9 @@ where
 	}
     }
 
-    pub const fn uninit() -> Self {
+    pub const fn noheap() -> Self {
 	Self {
-	    heap: MuMutex::new(MuHeap::<I>::uninit())
+	    heap: MuMutex::new(MuHeap::<I>::noheap())
 	}
     }
 }

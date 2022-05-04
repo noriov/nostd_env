@@ -59,7 +59,7 @@ where
     A: Copy + Allocator,
 {
     pub fn query(alloc: A) -> Option<Box<Self, A>> {
-	let vbe_info_block = bios::Int10h4f00h::call(alloc)?;
+	let vbe_info_block = bios::int10h4f00h::call(alloc)?;
 	let vbe_info = Self::from_vbe_info_block(&vbe_info_block, alloc);
 	let buf = Box::new_in(vbe_info, alloc);
 	Some(buf)

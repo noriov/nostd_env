@@ -16,4 +16,6 @@ extern {
     pub static __lmb_heap16_end: u8;
     pub static __lmb_heap32_start: u8;
     pub static __lmb_heap32_end: u8;
+    pub static __lmb_stack_start: u8;
+    pub static __lmb_stack_end: u8;
 }

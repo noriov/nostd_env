@@ -34,6 +34,9 @@ fn alloc_error_handler(layout: Layout) -> ! {
 
 #[no_mangle]
 pub extern "C" fn __bare_start() -> ! {
+    // Print the current stack usage.
+    println!("Stack max = {}", bios::StackUsage::new());
+
     // Initialize the global allocator (size = 1MB)
     init_global_alloc(1024 * 1024);
 
@@ -41,18 +44,14 @@ pub extern "C" fn __bare_start() -> ! {
     query_vbe::query_vbe(1280, 1024, 24, &ALLOC_UNDER20);
 
     // Try Checking Stack Usages of BIOS Text Output and Disk I/O.
-    {
-	bios::check_stack_usage();
-	println!("Try Checking Stack Usages");
-	println!("Stack max = {:#x}", bios::check_stack_usage());
-	test_diskio::try_read_sectors1(&ALLOC_UNDER16);
-	println!("Stack max = {:#x}", bios::check_stack_usage());
-	test_diskio::try_read_sectors2(&ALLOC_UNDER16);
-	println!("Stack max = {:#x}", bios::check_stack_usage());
-    }
+    test_diskio::try_read_sectors1(&ALLOC_UNDER16);
+    test_diskio::try_read_sectors2(&ALLOC_UNDER16);
 
     // Test: allocator and heap manager
     test_alloc::try_sieve(30, 100, 10000, &GLOBAL_ALLOC);
+
+    // Print the current stack usage.
+    println!("Stack max = {}", bios::StackUsage::new());
 
     // Halt
     halt_forever();

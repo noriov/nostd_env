@@ -4,6 +4,8 @@ pub mod ffi;
 pub mod int10h0eh;
 pub mod int10h4f00h;
 pub mod int10h4f01h;
+pub mod int10h4f02h;
+pub mod int10h4f03h;
 pub mod int13h02h;
 pub mod int13h42h;
 pub mod int15he820h;

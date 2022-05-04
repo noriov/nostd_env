@@ -1,14 +1,27 @@
-//
-// BIOS INT 10h AX=4F01h (VESA BIOS Extentions)
+/*!
+
+BIOS INT 10h AX=4F01h : Return VBE Mode Information
+
+# Resource
+
+* [VESA BIOS Extension Core Function Standard Version 3.0](http://www.petesqbsite.com/sections/tutorials/tuts/vbe3.pdf) (VESA, 1998-09-16)
+
+# Supplementary Resources
+
+* [VESA Video Modes](https://wiki.osdev.org/VESA_Video_Modes) (OS Dev)
+* [Display Industry Standards Archive](https://glenwing.github.io/docs/) (Glen Wing)
+
+ */
+
 //
 // Resource:
-//	VESA BIOS Extension Core Function Standard Version 3.0 (1998-09-16)
+//	"VESA BIOS Extension Core Function Standard Version 3.0" (1998-09-16)
 //	http://www.petesqbsite.com/sections/tutorials/tuts/vbe3.pdf
 //
 // Supplementary Resources:
 //	https://wiki.osdev.org/VESA_Video_Modes
 //
-//	Display Technology Information Repository and Utilities
+//	"Display Industry Standards Archive"
 //	https://glenwing.github.io/docs/
 //
 
@@ -17,19 +30,21 @@ use core::alloc::Allocator;
 use core::mem::{MaybeUninit, size_of};
 
 use super::LmbiosRegs;
-use crate::println;
+use crate::{print, println};
 use crate::x86::X86GetAddr;
 
 
+#[doc(hidden)]
 const DEBUG: bool = false;
 
 
-pub fn call<A>(mode: u16, alloc: A) -> Option<Box<ModeInfoBlock, A>>
+/// Calls BIOS INT 10h AX=4F01h (Return VBE Mode Information).
+pub fn call<A20>(mode: u16, alloc20: A20) -> Option<Box<ModeInfoBlock, A20>>
 where
-    A: Allocator,
+    A20: Allocator,
 {
     // Allocate a buffer in 20-bit address space.
-    let buf = Box::new_in(ModeInfoBlock::uninit(), alloc);
+    let buf = Box::new_in(ModeInfoBlock::uninit(), alloc20);
 
     // Get the far pointer of the buffer.
     let buf_fp = buf.get_far_ptr()?;
@@ -74,6 +89,7 @@ where
 }
 
 
+/// VBE Mode Information
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct ModeInfoBlock {
@@ -134,9 +150,55 @@ const _: () = assert!(size_of::<ModeInfoBlock>() == 0x100);
 impl X86GetAddr for ModeInfoBlock {}
 
 impl ModeInfoBlock {
+    pub const ATTR_GRAPHICS: u16 = 1 << 4;
+    pub const ATTR_FRAME_BUF: u16 = 1 << 7;
+    pub const MEM_TEXT: u8 = 0;
+    pub const MEM_PACKED_PIXEL: u8 = 4;
+    pub const MEM_DIRECT_COLOR: u8 = 6;
+
     fn uninit() -> Self {
 	unsafe {
 	    MaybeUninit::<Self>::uninit().assume_init()
+	}
+    }
+
+    #[inline]
+    pub fn phys_base_ptr(&self) -> u32 {
+	#[allow(unused_parens)]
+	((self.phys_base_ptr[0] as u32) |
+	 (self.phys_base_ptr[1] as u32) << 16)
+    }
+}
+
+
+// Print struct members for debugging
+impl ModeInfoBlock {
+    pub fn print(&self) {
+	println!("ModeInfoBlock:");
+
+	print!("  Attributes: {:#x}", self.mode_attributes);
+	if (self.mode_attributes & Self::ATTR_GRAPHICS) != 0 {
+	    print!(", Graphics");
+	}
+	if (self.mode_attributes & Self::ATTR_FRAME_BUF) != 0 {
+	    print!(", Linear Frame Buffer");
+	}
+	println!();
+
+	print!("  Memory Model: {} = ", self.memory_model);
+	match self.memory_model {
+	    Self::MEM_TEXT => print!("Text Mode"),
+	    Self::MEM_PACKED_PIXEL => print!("Packed Pixel"),
+	    Self::MEM_DIRECT_COLOR => print!("Direct Color"),
+	    _ => {},
+	}
+	println!();
+
+	println!("  Resolutions: (x, y) = ({}, {}), bpp={}",
+		 self.x_resolution, self.y_resolution, self.bits_per_pixel);
+
+	if self.phys_base_ptr() != 0 {
+	    println!("  Frame Buffer Address: {:#x}", self.phys_base_ptr());
 	}
     }
 }

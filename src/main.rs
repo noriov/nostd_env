@@ -5,8 +5,8 @@
 
 mod bios;
 mod man_heap;
+mod man_video;
 mod mu;
-mod query_vbe;
 mod test_alloc;
 mod test_diskio;
 mod text_writer;
@@ -34,8 +34,8 @@ pub extern "C" fn __bare_start() -> ! {
     // Initialize the global allocator (size = 1MB)
     man_heap::init_global_alloc(1024 * 1024, &ALLOC_UNDER20);
 
-    // Query VESA BIOS Extentions.
-    query_vbe::query_vbe(1280, 1024, 24, &ALLOC_UNDER20);
+    // Find the best mode using VESA BIOS Extentions.
+    man_video::find_graphics_mode(1280, 1024, 24, &ALLOC_UNDER20);
 
     // Try Checking Stack Usages of BIOS Text Output and Disk I/O.
     test_diskio::try_read_sectors1(&ALLOC_UNDER16);

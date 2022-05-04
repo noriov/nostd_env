@@ -24,57 +24,53 @@ use crate::x86::X86Addr;
 const DEBUG: bool = false;
 
 
-pub struct Int10h4f01h;
+pub fn call<A>(mode: u16, alloc: A) -> Option<Box<ModeInfoBlock, A>>
+where
+    A: Allocator,
+{
+    // Allocate a buffer in 20-bit address space.
+    let buf = Box::new_in(ModeInfoBlock::uninit(), alloc);
 
-impl Int10h4f01h {
-    pub fn call<A>(mode: u16, alloc: A) -> Option<Box<ModeInfoBlock, A>>
-    where
-	A: Allocator,
-    {
-	// Allocate a buffer in 20-bit address space.
-	let buf = Box::new_in(ModeInfoBlock::uninit(), alloc);
+    // Get segment and offset of buf.
+    let (buf_seg, buf_off) = buf.get_rm16_addr()?;
 
-	// Get segment and offset of buf.
-	let (buf_seg, buf_off) = buf.get_rm16_addr()?;
+    unsafe {
+	// INT 10h AH=4Fh AL=01h
+	// IN
+	//   CX    = Mode
+	//   ES:DI = Buffer Address
+	// OUT
+	//   AX    = Status
+	let mut regs = LmbiosRegs {
+	    fun: 0x10,			// INT 10h
+	    eax: 0x4f01,		// AH=4Fh AL=01h
+	    ecx: mode as u32,		// Mode
+	    edi: buf_off as u32,	// Buffer Address
+	    es: buf_seg,		// Buffer Address
+	    ..Default::default()
+	};
 
-	unsafe {
-	    // INT 10h AH=4Fh AL=01h
-	    // IN
-	    //   CX    = Mode
-	    //   ES:DI = Buffer Address
-	    // OUT
-	    //   AX    = Status
-	    let mut regs = LmbiosRegs {
-		fun: 0x10,		// INT 10h
-		eax: 0x4f01,		// AH=4Fh AL=01h
-		ecx: mode as u32,	// Mode
-		edi: buf_off as u32,	// Buffer Address
-		es: buf_seg,		// Buffer Address
-		..Default::default()
-	    };
-
-	    if DEBUG {
-		println!("IN:  EAX={:#x}, ES:EDI={:#x}:{:#x}",
-			 regs.eax, regs.es, regs.edi);
-	    }
-
-	    regs.call();
-
-	    if DEBUG {
-		println!("OUT: EAX={:#x}",
-			 regs.eax);
-	    }
-
-	    // Check whether an error is detected.
-	    // Note: If successful, AL = 0x4f and AH = 0x00.
-	    if regs.eax != 0x004f {
-		return None;
-	    }
+	if DEBUG {
+	    println!("IN:  EAX={:#x}, ES:EDI={:#x}:{:#x}",
+		     regs.eax, regs.es, regs.edi);
 	}
 
-	// Return the result.
-	Some(buf)
+	regs.call();
+
+	if DEBUG {
+	    println!("OUT: EAX={:#x}",
+		     regs.eax);
+	}
+
+	// Check whether an error is detected.
+	// Note: If successful, AL = 0x4f and AH = 0x00.
+	if regs.eax != 0x004f {
+	    return None;
+	}
     }
+
+    // Return the result.
+    Some(buf)
 }
 
 

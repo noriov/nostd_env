@@ -185,7 +185,7 @@ impl ModeInfo {
     where
 	A: Copy + Allocator,
     {
-	let mode_info_block = bios::Int10h4f01h::call(mode, alloc)?;
+	let mode_info_block = bios::int10h4f01h::call(mode, alloc)?;
 	let mode_info = Self::from_mode_info_block(mode, &mode_info_block);
 	let buf = Box::new_in(mode_info, alloc);
 	Some(buf)

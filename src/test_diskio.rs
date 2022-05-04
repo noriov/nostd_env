@@ -48,7 +48,7 @@ where
     print!("Read sectors: LBA={}, nsectors={}, drive={:#x} ... ",
 	   lba, nsectors, drive_id);
 
-    match bios::Int13h42h::call(drive_id, lba, nsectors, alloc) {
+    match bios::int13h42h::call(drive_id, lba, nsectors, alloc) {
 	Some(vec) => {
 	    println!("OK!");
 	    dump(&vec, 16);

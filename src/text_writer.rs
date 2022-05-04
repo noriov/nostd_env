@@ -19,7 +19,7 @@ impl TextWriter {
 		};
 	    let page_number = 0;
 	    let color = 15; // White
-	    bios::Int10h0eh::call(ch, page_number, color);
+	    bios::int10h0eh::call(ch, page_number, color);
 	}
     }
 }

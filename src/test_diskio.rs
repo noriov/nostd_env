@@ -25,7 +25,7 @@ where
     print!("Read sectors: CHS=({}, {}, {}), nsectors={}, drive={:#x} ... ",
 	   cylinder, head, sector, nsectors, drive_id);
 
-    match bios::Int13h02h::call(drive_id, cylinder, head, sector, nsectors,
+    match bios::int13h02h::call(drive_id, cylinder, head, sector, nsectors,
 				alloc) {
 	Some(vec) => {
 	    println!("OK!");

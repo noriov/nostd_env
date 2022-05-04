@@ -10,7 +10,7 @@ use core::{
 };
 
 use super::{
-    mu_heap::{MuHeap, HeapCellIndex},
+    mu_heap::{MuHeap, MuHeapIndex},
     mu_mutex::MuMutex,
 };
 
@@ -24,14 +24,14 @@ pub type MuAlloc32 = MuAlloc<i32>;
 
 pub struct MuAlloc<I>
 where
-    I: HeapCellIndex
+    I: MuHeapIndex
 {
     heap: MuMutex<MuHeap<I>>,
 }
 
 impl<I> MuAlloc<I>
 where
-    I: HeapCellIndex
+    I: MuHeapIndex
 {
     pub const unsafe fn heap(given_base: usize, given_size: usize) -> Self {
 	Self {
@@ -48,7 +48,7 @@ where
 
 impl<I> Deref for MuAlloc<I>
 where
-    I: HeapCellIndex
+    I: MuHeapIndex
 {
     type Target = MuMutex<MuHeap<I>>;
     fn deref(&self) -> &MuMutex<MuHeap<I>> {
@@ -62,7 +62,7 @@ where
 //
 unsafe impl<I> GlobalAlloc for MuAlloc<I>
 where
-    I: HeapCellIndex
+    I: MuHeapIndex
 {
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
 	self.lock().alloc(layout.size(), layout.align())
@@ -90,7 +90,7 @@ where
 //
 unsafe impl<I> Allocator for &MuAlloc<I>
 where
-    I: HeapCellIndex
+    I: MuHeapIndex
 {
     fn allocate(&self, layout: Layout) -> Result<NonNull<[u8]>, AllocError> {
 	unsafe {

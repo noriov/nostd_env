@@ -23,7 +23,7 @@ const DEBUG_FILL_JUNK: bool = false;
 
 pub struct MuHeap<I>
 where
-    I: HeapCellIndex	// I: Type of Index
+    I: MuHeapIndex	// I: Type of Index
 {
     base: usize,	// Adjusted Base Address of Heap Area
     ncells: I,		// Adjusted Number of HeapCell's in HeapCell Array.
@@ -50,7 +50,7 @@ where
 #[repr(C)]
 struct HeapCell<I>
 where
-    I: HeapCellIndex	// I: Type of Index
+    I: MuHeapIndex	// I: Type of Index
 {
     prev: I,		// Index of Previous HeapCell
     next: I,		// Index of Next HeapCell
@@ -89,7 +89,7 @@ const MIN_NCELLS: usize = 1;
 
 impl<I> MuHeap<I>
 where
-    I: HeapCellIndex
+    I: MuHeapIndex
 {
     // Initializer for static heap declaration.
     // Heap area will be built in method alloc().
@@ -745,7 +745,7 @@ impl HeapStat {
 #[derive(Debug)]
 struct HeapFigures<I>
 where
-    I: HeapCellIndex
+    I: MuHeapIndex
 {
     inuse_count: I,
     inuse_ncells: I,
@@ -756,7 +756,7 @@ where
 
 impl<I> HeapFigures<I>
 where
-    I: HeapCellIndex
+    I: MuHeapIndex
 {
     fn zero() -> Self {
 	Self {
@@ -785,7 +785,7 @@ where
 }
 
 
-pub trait HeapCellIndex
+pub trait MuHeapIndex
 where
     Self: 'static + Copy + PartialOrd
     + fmt::Debug + fmt::Display + fmt::LowerHex
@@ -800,7 +800,7 @@ where
     fn to_usize(&self) -> usize;
 }
 
-impl HeapCellIndex for i16 {
+impl MuHeapIndex for i16 {
     const ZERO: Self = 0;
     const ONE: Self = 1;
     const MAX_USIZE: usize = Self::MAX as usize;
@@ -816,7 +816,7 @@ impl HeapCellIndex for i16 {
     }
 }
 
-impl HeapCellIndex for i32 {
+impl MuHeapIndex for i32 {
     const ZERO: Self = 0;
     const ONE: Self = 1;
     const MAX_USIZE: usize = Self::MAX as usize;

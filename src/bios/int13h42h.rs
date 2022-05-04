@@ -1,5 +1,13 @@
-//
-// BIOS INT 13h AH=42h (Extended Read Sectors From Drive)
+/*!
+
+BIOS INT 13h AH=42h : Extended Read Sectors From Drive
+
+# Supplementary Resources
+
+* [INT 13H](https://en.wikipedia.org/wiki/INT_13H) (Wikipedia)
+
+ */
+
 //
 // Supplementary Resource:
 //	https://en.wikipedia.org/wiki/INT_13H
@@ -15,18 +23,22 @@ use crate::mu::PushBulk;
 use crate::x86::{FLAGS_CF, X86GetAddr};
 
 
+/// Sector Size = 512
 const SECTOR_SIZE: usize = 512;
+
+/// The maximum number of sectors that can be read by one BIOS call.
 const MAX_NSECTORS: u16 = 127;
 
 
-pub fn call<A>(drive_id: u8, lba: u64, nsectors: u16, alloc: A)
-	       -> Option<Vec<u8, A>>
+/// Calls BIOS INT 13h AH=42h (Extended Read Sectors From Drive).
+pub fn call<A20>(drive_id: u8, lba: u64, nsectors: u16, alloc20: A20)
+		 -> Option<Vec<u8, A20>>
 where
-    A: Allocator
+    A20: Allocator
 {
     // Prepare a result buffer in 20-bit address space.
     let total_nbytes = (nsectors as usize) * SECTOR_SIZE;
-    let mut vec = Vec::with_capacity_in(total_nbytes, alloc);
+    let mut vec = Vec::with_capacity_in(total_nbytes, alloc20);
 
     let mut cur_lba = lba;
     let mut unread_nsectors = nsectors;
@@ -92,6 +104,7 @@ where
 }
 
 
+/// Disk Address Packet
 #[repr(C)]
 #[derive(Default)]
 struct DiskAddressPacket {

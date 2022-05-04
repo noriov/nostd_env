@@ -1,4 +1,10 @@
-pub use super::LmbiosRegs;
+/*!
+
+Foreign Function Interface
+
+ */
+
+use super::LmbiosRegs;
 
 
 extern "C" {

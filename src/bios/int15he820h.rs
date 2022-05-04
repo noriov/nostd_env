@@ -1,5 +1,15 @@
-//
-// BIOS INT 15h AX=E820h (Query System Address Map)
+/*!
+
+BIOS INT 15h AX=E820h : Query System Address Map
+
+# Supplementary Resources
+
+* [Detecting Memory (x86)](https://wiki.osdev.org/Detecting_Memory_%28x86%29) (OS Dev)
+* [INT 15H, E820H - Query System Address Map](https://uefi.org/specs/ACPI/6.4/15_System_Address_Map_Interfaces/int-15h-e820h---query-system-address-map.html) (UEFI)
+* [INT 15h, AX=E820h - Query System Address Map](http://www.uruk.org/orig-grub/mem64mb.html)
+
+ */
+
 //
 // Supplementary Resources:
 //	https://wiki.osdev.org/Detecting_Memory_(x86)
@@ -17,19 +27,21 @@ use crate::mu::PushBulk;
 use crate::x86::{FLAGS_CF, X86GetAddr};
 
 
+#[doc(hidden)]
 const DEBUG: bool = false;
 
 
-pub fn call<A>(alloc: A) -> Option<Vec<AddrRange, A>>
+/// Calls BIOS INT 15h AX=E820h (Query System Address Map).
+pub fn call<A20>(alloc20: A20) -> Option<Vec<AddrRange, A20>>
 where
-    A: Allocator,
+    A20: Allocator,
 {
     // Initialize parameters.
     const ADDR_RANGE_SIZE: u32 = size_of::<AddrRange>() as u32;
     const SMAP_SIGNATURE:u32 = 0x534D4150;  // "SMAP"
 
     // Prepare a result buffer in 20-bit address space.
-    let mut vec: Vec<AddrRange, A> = Vec::new_in(alloc);
+    let mut vec = Vec::new_in(alloc20);
 
     // Initialize the continuation value to zero.
     let mut continuation: u32 = 0;
@@ -37,6 +49,7 @@ where
     loop {
 	unsafe {
 	    vec.push_bulk(1, | buf | {
+		// Fill the AddrRange buffer with the initial value.
 		buf[0] = AddrRange::initial_value();
 
 		// Get the far pointer of the buffer.
@@ -82,9 +95,7 @@ where
 		}
 
 		// Check the result.
-		#[allow(unused_parens)]
-		if (regs.eax != SMAP_SIGNATURE ||
-		    (regs.flags & FLAGS_CF) != 0) {
+		if regs.eax != SMAP_SIGNATURE || (regs.flags & FLAGS_CF) != 0 {
 		    return Err(());
 		}
 
@@ -95,9 +106,8 @@ where
 	    }).ok()?;
 	}
 
-	// Check the continuation value.
+	// If the continuation value is zero, this is the last entry.
 	if continuation == 0 {
-	    // This is the last entry.
 	    break;
 	}
     }
@@ -115,6 +125,7 @@ where
 }
 
 
+/// Address Range Descriptor
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct AddrRange {

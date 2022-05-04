@@ -1,3 +1,9 @@
+/*!
+
+Imports assembly language source files.
+
+ */
+
 use core::arch::global_asm;
 
 global_asm!(include_str!("lmboot0.s"), options(att_syntax));

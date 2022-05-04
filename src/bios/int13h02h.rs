@@ -1,5 +1,14 @@
-//
-// BIOS INT 13h AH=02h (Read Sectors From Drive)
+/*!
+
+BIOS INT 13h AH=02h : Read Sectors From Drive
+
+# Supplementary Resources
+
+* [INT 13H](https://en.wikipedia.org/wiki/INT_13H) (Wikipedia)
+* [Cylinder-head-sector](https://en.wikipedia.org/wiki/Cylinder-head-sector) (Wikipedia)
+
+ */
+
 //
 // Supplementary Resources:
 //	https://en.wikipedia.org/wiki/INT_13H
@@ -14,18 +23,20 @@ use crate::mu::PushBulk;
 use crate::x86::{FLAGS_CF, X86GetAddr};
 
 
+/// Sector Size = 512
 const SECTOR_SIZE: usize = 512;
 
 
-pub fn call<A>(drive_id: u8, cylinder: u16, head: u8, sector: u8,
-	       nsectors: u8, alloc: A) -> Option<Vec<u8, A>>
+/// Calls BIOS INT 13h AH=02h (Read Sectors From Drive).
+pub fn call<A20>(drive_id: u8, cylinder: u16, head: u8, sector: u8,
+		 nsectors: u8, alloc20: A20) -> Option<Vec<u8, A20>>
 where
-    A: Allocator
+    A20: Allocator
 {
     let nbytes = (nsectors as usize) * SECTOR_SIZE;
 
     // Prepare a result buffer in 20-bit address space.
-    let mut vec = Vec::new_in(alloc);
+    let mut vec = Vec::new_in(alloc20);
 
     unsafe {
 	vec.push_bulk(nbytes, | buf | {
@@ -66,6 +77,8 @@ where
     Some(vec)
 }
 
+/// Calculate the CX register value from the cylinder number
+/// (0 to 1023) and the sector number (1 to 63).
 #[inline]
 fn cylsec_to_cx(cylinder: u16, sector: u8) -> u16 {
     (cylinder & 0x00ff) << 8 | (cylinder & 0x0300) >> 2 | (sector as u16)

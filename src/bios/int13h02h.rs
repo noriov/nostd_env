@@ -11,7 +11,7 @@ use core::alloc::Allocator;
 
 use super::LmbiosRegs;
 use crate::mu::PushBulk;
-use crate::x86::{FLAGS_CF, X86Addr};
+use crate::x86::{FLAGS_CF, X86GetAddr};
 
 
 const SECTOR_SIZE: usize = 512;
@@ -29,8 +29,8 @@ where
 
     unsafe {
 	vec.push_bulk(nbytes, | buf | {
-	    // Get segment and offset of buf.
-	    let (buf_seg, buf_off) = buf.get_rm16_addr().ok_or(())?;
+	    // Get the far pointer of the buffer.
+	    let buf_fp = buf.get_far_ptr().ok_or(())?;
 
 	    // INT 13h AH=02h (Read Sectors From Drive)
 	    // IN
@@ -46,8 +46,8 @@ where
 		eax: 0x0200 | (nsectors as u32),
 		ecx: cylsec_to_cx(cylinder, sector) as u32,
 		edx: (head as u32) << 8 | drive_id as u32,
-		ebx: buf_off as u32,
-		es: buf_seg,
+		ebx: buf_fp.offset as u32,
+		es: buf_fp.segment,
 		..Default::default()
 	    };
 

@@ -14,7 +14,7 @@ use core::mem::{MaybeUninit, size_of};
 use super::LmbiosRegs;
 use crate::println;
 use crate::mu::PushBulk;
-use crate::x86::{FLAGS_CF, X86Addr};
+use crate::x86::{FLAGS_CF, X86GetAddr};
 
 
 const DEBUG: bool = false;
@@ -37,9 +37,10 @@ where
     loop {
 	unsafe {
 	    vec.push_bulk(1, | buf | {
-		let (buf_seg, buf_off) = buf.get_rm16_addr().ok_or(())?;
-
 		buf[0] = AddrRange::initial_value();
+
+		// Get the far pointer of the buffer.
+		let buf_fp = buf.get_far_ptr().ok_or(())?;
 
 		// INT 15h AH=E8h AL=20h (Query System Address Map)
 		// IN
@@ -59,8 +60,8 @@ where
 		    ebx: continuation,		// Continuation
 		    ecx: ADDR_RANGE_SIZE,	// Buffer Size
 		    edx: SMAP_SIGNATURE,	// Signature "SMAP"
-		    edi: buf_off as u32,	// Buffer Address
-		    es: buf_seg,		// Buffer Address
+		    edi: buf_fp.offset as u32,	// Buffer Address
+		    es: buf_fp.segment,		// Buffer Address
 		    ..Default::default()
 		};
 
@@ -159,4 +160,4 @@ impl AddrRange {
     }
 }
 
-impl X86Addr for AddrRange {}
+impl X86GetAddr for AddrRange {}

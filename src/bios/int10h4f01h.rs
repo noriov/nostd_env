@@ -18,7 +18,7 @@ use core::mem::{MaybeUninit, size_of};
 
 use super::LmbiosRegs;
 use crate::println;
-use crate::x86::X86Addr;
+use crate::x86::X86GetAddr;
 
 
 const DEBUG: bool = false;
@@ -31,22 +31,22 @@ where
     // Allocate a buffer in 20-bit address space.
     let buf = Box::new_in(ModeInfoBlock::uninit(), alloc);
 
-    // Get segment and offset of buf.
-    let (buf_seg, buf_off) = buf.get_rm16_addr()?;
+    // Get the far pointer of the buffer.
+    let buf_fp = buf.get_far_ptr()?;
 
     unsafe {
 	// INT 10h AH=4Fh AL=01h
 	// IN
-	//   CX    = Mode
-	//   ES:DI = Buffer Address
+	//   CX    = Mode Number
+	//   ES:DI = Address of ModeInfoBlock
 	// OUT
 	//   AX    = Status
 	let mut regs = LmbiosRegs {
 	    fun: 0x10,			// INT 10h
 	    eax: 0x4f01,		// AH=4Fh AL=01h
-	    ecx: mode as u32,		// Mode
-	    edi: buf_off as u32,	// Buffer Address
-	    es: buf_seg,		// Buffer Address
+	    ecx: mode as u32,		// Mode Number
+	    edi: buf_fp.offset as u32,	// Offset of ModeInfoBlock
+	    es: buf_fp.segment,		// Segment of ModeInfoBlock
 	    ..Default::default()
 	};
 
@@ -131,7 +131,7 @@ pub struct ModeInfoBlock {
 
 const _: () = assert!(size_of::<ModeInfoBlock>() == 0x100);
 
-impl X86Addr for ModeInfoBlock {}
+impl X86GetAddr for ModeInfoBlock {}
 
 impl ModeInfoBlock {
     fn uninit() -> Self {

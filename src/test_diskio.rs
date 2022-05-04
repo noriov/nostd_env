@@ -11,7 +11,7 @@ use core::alloc::Allocator;
 
 use crate::bios;
 use crate::{print, println};
-use crate::x86::X86Addr;
+use crate::x86::X86GetAddr;
 
 
 pub fn try_read_sectors1<A>(alloc: A)

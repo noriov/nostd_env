@@ -18,7 +18,7 @@ use core::mem::{MaybeUninit, size_of};
 
 use super::LmbiosRegs;
 use crate::println;
-use crate::x86::X86Addr;
+use crate::x86::X86GetAddr;
 
 
 const DEBUG: bool = false;
@@ -31,20 +31,20 @@ where
     // Allocate a buffer in 20-bit address space.
     let buf = Box::new_in(VbeInfoBlock::uninit(), alloc);
 
-    // Get segment and offset of buf.
-    let (buf_seg, buf_off) = buf.get_rm16_addr()?;
+    // Get the far pointer of the buffer.
+    let buf_fp = buf.get_far_ptr()?;
 
     unsafe {
 	// INT 10h AH=4Fh AL=00h
 	// IN
-	//   ES:DI = Buffer Address
+	//   ES:DI = Address of VbeInfoBlock
 	// OUT
 	//   AX    = Status
 	let mut regs = LmbiosRegs {
 	    fun: 0x10,			// INT 10h
 	    eax: 0x4f00,		// AH=4Fh AL=00h
-	    edi: buf_off as u32,	// Buffer Address
-	    es: buf_seg,		// Buffer Address
+	    edi: buf_fp.offset as u32,	// Offset of VbeInfoBlock
+	    es: buf_fp.segment,		// Segment of VbeInfoBlock
 	    ..Default::default()
 	};
 
@@ -94,7 +94,7 @@ pub struct VbeInfoBlock {
 
 const _: () = assert!(size_of::<VbeInfoBlock>() == 0x200);
 
-impl X86Addr for VbeInfoBlock {}
+impl X86GetAddr for VbeInfoBlock {}
 
 impl VbeInfoBlock {
     fn uninit() -> Self {

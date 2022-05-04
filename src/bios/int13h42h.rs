@@ -12,7 +12,7 @@ use core::mem::size_of;
 
 use super::LmbiosRegs;
 use crate::mu::PushBulk;
-use crate::x86::{FLAGS_CF, X86Addr};
+use crate::x86::{FLAGS_CF, X86GetAddr};
 
 
 const SECTOR_SIZE: usize = 512;
@@ -37,7 +37,8 @@ where
 
 	unsafe {
 	    vec.push_bulk(cur_nbytes, | buf | {
-		let (buf_seg, buf_off) = buf.get_rm16_addr().ok_or(())?;
+		// Get the far pointer of the buffer.
+		let buf_fp = buf.get_far_ptr().ok_or(())?;
 
 		// Allocate a buffer for DAP on the stack.
 		let dap =
@@ -45,12 +46,13 @@ where
 			size: 0x10,
 			reserved: 0,
 			nsectors: cur_nsectors,
-			buf_offset: buf_off,
-			buf_segment: buf_seg,
+			buf_offset: buf_fp.offset,
+			buf_segment: buf_fp.segment,
 			lba: cur_lba,
 		    };
 
-		let (dap_seg, dap_off) = dap.get_rm16_addr().ok_or(())?;
+		// Get the far pointer of the Disk Address Packet.
+		let dap_fp = dap.get_far_ptr().ok_or(())?;
 
 		// INT 13h AH=42h (Extended Read Sectors From Drive)
 		// IN
@@ -62,8 +64,8 @@ where
 		    fun: 0x13,
 		    eax: 0x4200,
 		    edx: drive_id as u32,
-		    esi: dap_off as u32,
-		    ds: dap_seg,
+		    esi: dap_fp.offset as u32,
+		    ds: dap_fp.segment,
 		    ..Default::default()
 		};
 
@@ -103,4 +105,4 @@ struct DiskAddressPacket {
 
 const _: () = assert!(size_of::<DiskAddressPacket>() == 0x10);
 
-impl X86Addr for DiskAddressPacket {}
+impl X86GetAddr for DiskAddressPacket {}

@@ -14,10 +14,10 @@ mod x86;
 extern crate alloc;
 use alloc::alloc::Layout;
 use alloc::vec::Vec;
-use core::arch::asm;
 use core::panic::PanicInfo;
 
 use crate::mu::{MuAlloc16, MuAlloc32};
+use crate::x86::halt_forever;
 
 
 #[panic_handler]
@@ -29,15 +29,6 @@ fn panic(info: &PanicInfo) -> ! {
 #[alloc_error_handler]
 fn alloc_error_handler(layout: Layout) -> ! {
     panic!("Failed to allocate {:?}", layout)
-}
-
-fn halt_forever() -> ! {
-    println!("halt");
-    loop {
-	unsafe {
-	    asm!("hlt");
-	}
-    }
 }
 
 

@@ -589,6 +589,48 @@ where
 	ptr
     }
 
+    #[inline]
+    const fn heapcell_size() -> usize {
+	size_of::<HeapCell<I>>()
+    }
+
+    #[inline]
+    fn ncells_up(n: usize) -> I {
+	fn nelem_up(n: usize, m: usize) -> usize {
+	    (n + m - 1) / m
+	}
+	let r = nelem_up(n, Self::heapcell_size());
+	I::from_usize(min(r, I::MAX_USIZE))
+    }
+
+    #[inline]
+    fn ncells_down(n: usize) -> I {
+	fn nelem_down(n: usize, m: usize) -> usize {
+	    n / m
+	}
+	let r = nelem_down(n, Self::heapcell_size());
+	I::from_usize(min(r, I::MAX_USIZE))
+    }
+
+    #[inline]
+    fn align_cell(cur_i: I, align: usize) -> I {
+	let cur_mem_i = cur_i + I::ONE;
+	let cur_mem_off = cur_mem_i.to_usize() * Self::heapcell_size();
+	let ali_mem_off = Self::round_up(cur_mem_off, align);
+	let ali_mem_i = I::from_usize(ali_mem_off / Self::heapcell_size());
+	ali_mem_i - I::ONE
+    }
+
+    #[inline]
+    const fn round_up(n: usize, m: usize) -> usize {
+	((n + m - 1) / m) * m
+    }
+}
+
+impl<I> MuHeap<I>
+where
+    I: MuHeapIndex
+{
     fn debug_check_list(&self, check_index: I, _caller: Caller)
 			-> HeapFigures<I> {
 	let cells = self.heapcells();
@@ -679,43 +721,6 @@ where
 		};
 	    slice.fill(0x5a);
 	}
-    }
-
-    #[inline]
-    const fn heapcell_size() -> usize {
-	size_of::<HeapCell<I>>()
-    }
-
-    #[inline]
-    fn ncells_up(n: usize) -> I {
-	fn nelem_up(n: usize, m: usize) -> usize {
-	    (n + m - 1) / m
-	}
-	let r = nelem_up(n, Self::heapcell_size());
-	I::from_usize(min(r, I::MAX_USIZE))
-    }
-
-    #[inline]
-    fn ncells_down(n: usize) -> I {
-	fn nelem_down(n: usize, m: usize) -> usize {
-	    n / m
-	}
-	let r = nelem_down(n, Self::heapcell_size());
-	I::from_usize(min(r, I::MAX_USIZE))
-    }
-
-    #[inline]
-    fn align_cell(cur_i: I, align: usize) -> I {
-	let cur_mem_i = cur_i + I::ONE;
-	let cur_mem_off = cur_mem_i.to_usize() * Self::heapcell_size();
-	let ali_mem_off = Self::round_up(cur_mem_off, align);
-	let ali_mem_i = I::from_usize(ali_mem_off / Self::heapcell_size());
-	ali_mem_i - I::ONE
-    }
-
-    #[inline]
-    const fn round_up(n: usize, m: usize) -> usize {
-	((n + m - 1) / m) * m
     }
 }
 

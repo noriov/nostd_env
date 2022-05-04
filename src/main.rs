@@ -62,7 +62,7 @@ pub extern "C" fn __bare_start() -> ! {
 fn init_global_alloc(size: usize) -> Vec<bios::AddrRange> {
     const ADDR_1MB: u64 = 0x10_0000;
 
-    if let Some(addr_ranges) = bios::Int15he820h::call(&ALLOC_UNDER20) {
+    if let Some(addr_ranges) = bios::int15he820h::call(&ALLOC_UNDER20) {
 	for entry in &addr_ranges {
 	    #[allow(unused_parens)]
 	    if (entry.is_usable() &&

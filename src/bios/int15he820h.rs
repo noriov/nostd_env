@@ -20,101 +20,97 @@ use crate::x86::{FLAGS_CF, X86Addr};
 const DEBUG: bool = false;
 
 
-pub struct Int15he820h;
+pub fn call<A>(alloc: A) -> Option<Vec<AddrRange, A>>
+where
+    A: Allocator,
+{
+    // Initialize parameters.
+    const ADDR_RANGE_SIZE: u32 = size_of::<AddrRange>() as u32;
+    const SMAP_SIGNATURE:u32 = 0x534D4150;  // "SMAP"
 
-impl Int15he820h {
-    pub fn call<A>(alloc: A) -> Option<Vec<AddrRange, A>>
-    where
-	A: Allocator,
-    {
-	// Initialize parameters.
-	const ADDR_RANGE_SIZE: u32 = size_of::<AddrRange>() as u32;
-	const SMAP_SIGNATURE:u32 = 0x534D4150;  // "SMAP"
+    // Prepare a result buffer in 20-bit address space.
+    let mut vec: Vec<AddrRange, A> = Vec::new_in(alloc);
 
-	// Prepare a result buffer in 20-bit address space.
-	let mut vec: Vec<AddrRange, A> = Vec::new_in(alloc);
+    // Initialize the continuation value to zero.
+    let mut continuation: u32 = 0;
 
-	// Initialize the continuation value to zero.
-	let mut continuation: u32 = 0;
+    loop {
+	unsafe {
+	    vec.push_bulk(1, | buf | {
+		let (buf_seg, buf_off) = buf.get_rm16_addr().ok_or(())?;
 
-	loop {
-	    unsafe {
-		vec.push_bulk(1, | buf | {
-		    let (buf_seg, buf_off) = buf.get_rm16_addr().ok_or(())?;
+		buf[0] = AddrRange::initial_value();
 
-		    buf[0] = AddrRange::initial_value();
+		// INT 15h AH=E8h AL=20h (Query System Address Map)
+		// IN
+		//   EAX   = E820h
+		//   EBX   = Continuation
+		//   ECX   = Buffer Size
+		//   EDX   = Signature "SMAP"
+		//   ES:DI = Buffer Address
+		// OUT
+		//   EAX   = Signature "SMAP"
+		//   EBX   = Continuation
+		//   ECX   = Buffer Size
+		//   CF    = 0 if Ok, 1 if Err
+		let mut regs = LmbiosRegs {
+		    fun: 0x15,			// INT 15h
+		    eax: 0xe820,		// AH=E8 AL=20h
+		    ebx: continuation,		// Continuation
+		    ecx: ADDR_RANGE_SIZE,	// Buffer Size
+		    edx: SMAP_SIGNATURE,	// Signature "SMAP"
+		    edi: buf_off as u32,	// Buffer Address
+		    es: buf_seg,		// Buffer Address
+		    ..Default::default()
+		};
 
-		    // INT 15h AH=E8h AL=20h (Query System Address Map)
-		    // IN
-		    //   EAX   = E820h
-		    //   EBX   = Continuation
-		    //   ECX   = Buffer Size
-		    //   EDX   = Signature "SMAP"
-		    //   ES:DI = Buffer Address
-		    // OUT
-		    //   EAX   = Signature "SMAP"
-		    //   EBX   = Continuation
-		    //   ECX   = Buffer Size
-		    //   CF    = 0 if Ok, 1 if Err
-		    let mut regs = LmbiosRegs {
-			fun: 0x15,		// INT 15h
-			eax: 0xe820,		// AH=E8 AL=20h
-			ebx: continuation,	// Continuation
-			ecx: ADDR_RANGE_SIZE,	// Buffer Size
-			edx: SMAP_SIGNATURE,	// Signature "SMAP"
-			edi: buf_off as u32,	// Buffer Address
-			es: buf_seg,		// Buffer Address
-			..Default::default()
-		    };
+		if DEBUG {
+		    println!("IN:  EAX={:#x}, EBX={:#x}, ECX={:#x}, \
+			      EDX={:#x}, ES:EDI={:#x}:{:#x}",
+			     regs.eax, regs.ebx, regs.ecx,
+			     regs.edx, regs.es, regs.edi);
+		}
 
-		    if DEBUG {
-			println!("IN:  EAX={:#x}, EBX={:#x}, ECX={:#x}, \
-				  EDX={:#x}, ES:EDI={:#x}:{:#x}",
-				 regs.eax, regs.ebx, regs.ecx,
-				 regs.edx, regs.es, regs.edi);
-		    }
+		regs.call();
 
-		    regs.call();
+		if DEBUG {
+		    println!("OUT: EAX={:#x}, EBX={:#x}, ECX={:#x}, \
+			      EDX={:#x}, ES:EDI={:#x}:{:#x}, FLAGS={:#x}",
+			     regs.eax, regs.ebx, regs.ecx,
+			     regs.edx, regs.es, regs.edi, regs.flags);
+		}
 
-		    if DEBUG {
-			println!("OUT: EAX={:#x}, EBX={:#x}, ECX={:#x}, \
-				  EDX={:#x}, ES:EDI={:#x}:{:#x}, FLAGS={:#x}",
-				 regs.eax, regs.ebx, regs.ecx,
-				 regs.edx, regs.es, regs.edi, regs.flags);
-		    }
+		// Check the result.
+		#[allow(unused_parens)]
+		if (regs.eax != SMAP_SIGNATURE ||
+		    (regs.flags & FLAGS_CF) != 0) {
+		    return Err(());
+		}
 
-		    // Check the result.
-		    #[allow(unused_parens)]
-		    if (regs.eax != SMAP_SIGNATURE ||
-			(regs.flags & FLAGS_CF) != 0) {
-			return Err(());
-		    }
+		// Save the continuation value.
+		continuation = regs.ebx;
 
-		    // Save the continuation value.
-		    continuation = regs.ebx;
-
-		    Ok(())
-		}).ok()?;
-	    }
-
-	    // Check the continuation value.
-	    if continuation == 0 {
-		// This is the last entry.
-		break;
-	    }
+		Ok(())
+	    }).ok()?;
 	}
 
-	vec.shrink_to_fit();
-
-	if DEBUG {
-	    println!("System Address Map:");
-	    for addr_range in &vec {
-		addr_range.print();
-	    }
+	// Check the continuation value.
+	if continuation == 0 {
+	    // This is the last entry.
+	    break;
 	}
-
-	Some(vec)
     }
+
+    vec.shrink_to_fit();
+
+    if DEBUG {
+	println!("System Address Map:");
+	for addr_range in &vec {
+	    addr_range.print();
+	}
+    }
+
+    Some(vec)
 }
 
 

@@ -62,7 +62,7 @@ where
 
 	// Check whether an error is detected.
 	// Note: If successful, AL = 0x4f and AH = 0x00.
-	if regs.eax != 0x004f {
+	if (regs.eax & 0xffff) != 0x004f {
 	    return None;
 	}
     }

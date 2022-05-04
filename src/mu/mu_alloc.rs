@@ -1,5 +1,5 @@
 //
-// Micro Alloc - An implementation of alloc::GlobalAlloc and alloc::Allocator
+// Micro Alloc - An implementation of alloc::GlobalAlloc and alloc:Allocator
 //
 
 use core::{
@@ -9,19 +9,23 @@ use core::{
     slice,
 };
 
-use super::{
-    mu_heap::{MuHeap, MuHeapIndex},
-    mu_mutex::MuMutex,
-};
+use super::{MuHeap, MuHeapIndex, MuMutex};
 
 
-//
-// MuAlloc - A mutex'ed allocator backed by MuHeap
-//
-
+/// Provides a mutex'ed allocator backed by [`MuHeap`]`<i16>`.
 pub type MuAlloc16 = MuAlloc<i16>;
+
+/// Provides a mutex'ed allocator backed by [`MuHeap`]`<i32>`.
 pub type MuAlloc32 = MuAlloc<i32>;
 
+///
+/// Provides a mutex'ed allocator backed by [`MuHeap`].
+///
+/// It has implementations of both [`GlobalAlloc`] and [`Allocator`].
+///
+/// [`GlobalAlloc`]: https://doc.rust-lang.org/alloc/alloc/trait.GlobalAlloc.html
+/// [`Allocator`]: https://doc.rust-lang.org/alloc/alloc/trait.Allocator.html
+///
 pub struct MuAlloc<I>
 where
     I: MuHeapIndex
@@ -33,12 +37,15 @@ impl<I> MuAlloc<I>
 where
     I: MuHeapIndex
 {
+    /// Initializes a statically defined variable with the base and
+    /// the size of a heap area.
     pub const unsafe fn heap(given_base: usize, given_size: usize) -> Self {
 	Self {
 	    heap: MuMutex::new(MuHeap::<I>::heap(given_base, given_size)),
 	}
     }
 
+    /// Initializes a statically defined variable with no heap.
     pub const fn noheap() -> Self {
 	Self {
 	    heap: MuMutex::new(MuHeap::<I>::noheap())
@@ -127,6 +134,7 @@ where
     }
 }
 
+#[doc(hidden)]
 unsafe fn alloc_result(ptr: *mut u8, size: usize)
 		-> Result<NonNull<[u8]>, AllocError> {
     if !ptr.is_null() {

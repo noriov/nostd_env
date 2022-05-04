@@ -1,5 +1,5 @@
 //
-// Micro Heap - A First-Fit Memroy Allocator using Doubly Linked List
+// Micro Heap - A first-fit memroy allocator using doubly linked list.
 //
 
 use core::{
@@ -14,19 +14,79 @@ use core::{
 use crate::println;
 
 
-const DEBUG_HEAP: bool = false;
-const DEBUG_PRIOR_CHECK: bool = false;
-const DEBUG_POST_CHECK: bool = true;
-const DEBUG_CHECK_PTR: bool = true;
-const DEBUG_FILL_JUNK: bool = false;
+#[doc(hidden)] const DEBUG_HEAP: bool = false;
+#[doc(hidden)] const DEBUG_PRIOR_CHECK: bool = false;
+#[doc(hidden)] const DEBUG_POST_CHECK: bool = true;
+#[doc(hidden)] const DEBUG_CHECK_PTR: bool = true;
+#[doc(hidden)] const DEBUG_FILL_JUNK: bool = false;
 
 
+///
+/// Provides a first-fit memroy allocator using doubly linked list.
+///
+/// `MuHeap` manages a heap area as an array of struct `HeapCell`s.
+///
+/// # Struct HeapCell
+///
+/// A heap area is an array of struct `HeapCell`s, whose use cases can
+/// be categorized into two: management cells and data cells.
+///
+/// The management cells form a doubly linked list using two signed
+/// integer fields: the `prev` and `next` fields.
+///
+/// * The `prev` field holds the index of the previous cell in the
+///   cell list.
+///
+/// * The `next` field holds the index of the next cell in the cell
+///   list.
+///
+/// The data cells are sandwiched between two management cells.  They
+/// hold data instead of indexes.
+///
+/// * If both the `next` field of the prepending management cell and the
+///   `prev` field of the postpending management cell are non-negative,
+///   those data cells between them are in use.
+///   (i.e., in use if indexes >= 0)
+///
+/// * If both the `next` field of the prepending management cell and the
+///   `prev` field of the postpending management cell are negative,
+///   those data cells between them are free.
+///   (i.e., free if indexes < 0)
+///
+/// Note: The negation of indexes is computed using *ones' complement*
+/// instead of *two's complement* in order to distinguish positive-zero
+/// and negative-zero.
+///
+/// # Types of the `next` and `prev` Field
+///
+/// As described above, struct `HeapCell` has two signed integer
+/// fields: the `prev` and `next` fields.  From the practical point of
+/// view, `i16` or `i32` are useful as their types.
+///
+/// * If `i16` is chosen, the size of struct `HeapCell` is 4 bytes,
+///   and the maximum managable heap area size is 128KiB (= 4 * 2^15).
+///
+/// * If `i32` is chosen, the size of struct `HeapCell` is 8 bytes,
+///   and the maximum managable heap area size is 16GiB (= 8 * 2^31).
+///   (Needless to say, 16GiB space is too huge to manage with a
+///   first-fit memory allocator)
+///
+/// In order to make `MuHeap` independent from the type of index,
+/// trait [`MuHeapIndex`] is defined.
+///
+
+//
+// Because mutable references are not allowed in constant functions,
+// the address in usize and the length of the array are recorded in
+// struct MuHeap.  Each time when the array is referred, a slice of
+// HeapCell's is constructed using method heapcells.
+//
 pub struct MuHeap<I>
 where
     I: MuHeapIndex	// I: Type of Index
 {
-    base: usize,	// Adjusted Base Address of Heap Area
-    ncells: I,		// Adjusted Number of HeapCell's in HeapCell Array.
+    base: usize,	// Base Address of the HeapCell Array.
+    ncells: I,		// Number of HeapCell's in the HeapCell Array.
     search_start: I,	// Index where the next search starts.
     given_base: usize,	// Given Base Address of Heap Area (for debug)
     given_size: usize,	// Given Size in Bytes of Heap Area (for debug)
@@ -34,19 +94,6 @@ where
 }
 
 
-// Heap area is an array of HeapCell's.
-// There are two types of cells: management and data.
-//
-// Management cells forms a cell list using the prev and next fields.
-// - prev holds the index of the previous cell in the cell list.
-// - next holds the index of the next cell in the cell list.
-//
-// Data cells are enclosed by management cells.
-// If enclosing index values are non-negative, those data cells are in use.
-// Otherwise, those data cells are free.  Important note: The negation of
-// indexes is computed using ones' complement instead of two's complement
-// in order to distinguish positive-zero and negative-zero.
-//
 #[repr(C)]
 struct HeapCell<I>
 where
@@ -56,12 +103,13 @@ where
     next: I,		// Index of Next HeapCell
 }
 
+// Enumerations of public methods.
 #[derive(Clone, Copy, Debug, PartialEq)]
 enum Caller {
-    Alloc,
-    Dealloc,
-    Grow,
-    Shrink,
+    Alloc,		// Method alloc
+    Dealloc,		// Method dealloc
+    Grow,		// Method grow
+    Shrink,		// Method shrink
 }
 
 
@@ -80,9 +128,9 @@ const MAX_ALIGNMENT: usize = 1024 / 8;	// 1024 bit (for now)
 
 
 //
-// Define the minimum number of cells in heap area.
+// Defines the minimum number of cells in heap area.
 // The number below is chosen because at least the 0-th cell must exist.
-// (From a practical point of view, this number is too small)
+// (Obviously, it is not a practical number)
 //
 const MIN_NCELLS: usize = 1;
 
@@ -103,8 +151,10 @@ where
 	}
     }
 
-    // Initializer for static heap declaration.
-    // Heap area will be built in method alloc().
+    /// Returns a heap initializer with the address and the size in
+    /// bytes for a static heap declaration.
+    // The remaining fields will be initialized later when method
+    // alloc is called at the first time.
     pub const unsafe fn heap(given_base: usize, given_size: usize) -> Self {
 	Self {
 	    given_base,
@@ -113,13 +163,15 @@ where
 	}
     }
 
-    // Initializer for static heap declaration.
-    // Heap area must be specified later by using method set_heap.
+    /// Returns a no-heap initializer for a static heap declaration.
+    /// The address and the size of a heap area should be set later
+    /// by calling method set_heap.
     pub const fn noheap() -> Self {
 	Self::zero()
     }
 
-    // Post-initializer for const method noheap().
+    /// Sets the address and the size in bytes of a heap area
+    /// to the statically initialized no-heap area.
     pub unsafe fn set_heap(&mut self, given_base: usize, given_size: usize) {
 	debug_assert!(self.given_base == 0 && self.given_size == 0 &&
 		      self.base == 0 && self.ncells == I::ZERO);
@@ -130,14 +182,13 @@ where
 	self.build_heap();
     }
 
-    // Entry point to allocate memory area.
+    /// Attempts to allocate a block of memory.
     pub unsafe fn alloc(&mut self, size: usize, align: usize) -> *mut u8 {
 	debug_assert!(self.given_base != 0 && self.given_size != 0);
 
 	if self.base == 0 {
-	    // When given_base and given_size are initialized by heap(),
-	    // base and ncells are not initialized yet.
-	    // they must be initialized here.
+	    // When given_base and given_size are initialized by method heap,
+	    // other fields must be initialized here.
 	    self.build_heap();
 	}
 
@@ -162,7 +213,7 @@ where
 	}
     }
 
-    // Entry point to deallocate memory area.
+    /// Deallocates the memory referenced by ptr.
     pub unsafe fn dealloc(&mut self, ptr: *mut u8, size: usize, align: usize) {
 	debug_assert!(self.given_base != 0 && self.given_size != 0 &&
 		      self.base != 0 && self.ncells != I::ZERO);
@@ -182,7 +233,7 @@ where
 	}
     }
 
-    // Entry point to grow memory area.
+    /// Attempts to extend the memory block.
     pub unsafe fn grow(&mut self, old_ptr: *mut u8,
 		       old_size: usize, new_size: usize, align: usize)
 		       -> *mut u8 {
@@ -213,7 +264,7 @@ where
 	}
     }
 
-    // Entry point to shrink memory area.
+    /// Shrink the memory block.
     pub unsafe fn shrink(&mut self, ptr: *mut u8,
 			 old_size: usize, new_size: usize, align: usize)
 			 -> *mut u8 {
@@ -230,7 +281,7 @@ where
 	    // For zero-sized allocation,
 	    // alignment was returned without allocating memory.
 	    debug_assert_eq!(ptr as usize, align);
-	    // Just return the current ptr.
+	    // Therefore, just return the current ptr.
 	    ptr
 	} else {
 	    // Shrink the memory area.
@@ -795,6 +846,9 @@ where
 }
 
 
+/// A trait that the types of indexes in heap cells must satisfy.
+///
+/// From the practical point of view, `i16` or `i32` are useful.
 pub trait MuHeapIndex
 where
     Self: 'static + Copy + PartialOrd
@@ -803,10 +857,15 @@ where
     + ops::AddAssign + ops::SubAssign
     + ops::Neg<Output = Self> + ops::Not<Output = Self>,
 {
+    /// Zero in Self.
     const ZERO: Self;
+    /// One in Self.
     const ONE: Self;
+    /// The maximum value in usize.
     const MAX_USIZE: usize;
+    /// Converts a value from usize into Self.
     fn from_usize(n: usize) -> Self;
+    /// Converts a value from Self into usize.
     fn to_usize(&self) -> usize;
 }
 

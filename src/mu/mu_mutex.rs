@@ -1,5 +1,5 @@
 //
-// Micro Mutex - A Mutual Exclusion Primitive using Spin Lock
+// Micro Mutex - A mutual exclusion primitive using spin lock.
 //
 
 use core::{
@@ -10,6 +10,7 @@ use core::{
 };
 
 
+/// Provides a mutual exclusion primitive using spin lock.
 pub struct MuMutex<T> {
     value: UnsafeCell<T>,
     atomic: AtomicBool,
@@ -19,6 +20,7 @@ unsafe impl<T: Send> Send for MuMutex<T> {}
 unsafe impl<T: Send> Sync for MuMutex<T> {}
 
 impl<T> MuMutex<T> {
+    /// Returns a new mutex in an unlocked state.
     pub const fn new(value: T) -> Self {
 	Self {
 	    value: UnsafeCell::new(value),
@@ -26,6 +28,7 @@ impl<T> MuMutex<T> {
 	}
     }
 
+    /// Acquires a mutex.
     pub fn lock(&self) -> MuMutexGuard<T> {
 	self.spin_lock();
 	MuMutexGuard::<T> { locked: self }

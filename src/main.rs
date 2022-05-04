@@ -1,24 +1,21 @@
 #![no_std]
 #![no_main]
-#![feature(alloc_error_handler)]
-#![feature(allocator_api)]
 
-mod bios;
-mod man_heap;
-mod man_video;
-mod mu;
-mod test_alloc;
-mod test_diskio;
-mod text_writer;
-mod x86;
-
-extern crate alloc;
 use core::panic::PanicInfo;
 
-use crate::man_heap::{ALLOC_UNDER16, ALLOC_UNDER20, GLOBAL_ALLOC};
-use crate::x86::halt_forever;
+// See src/lib.rs
+use nostd_env::{
+    bios,
+    man_heap::{self, ALLOC_UNDER16, ALLOC_UNDER20, GLOBAL_ALLOC},
+    man_video,
+    println,
+    test_alloc,
+    test_diskio,
+    x86::halt_forever,
+};
 
 
+// Panic handler (cf. https://doc.rust-lang.org/nomicon/panic-handler.html )
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
     println!("{}", info);
@@ -26,6 +23,7 @@ fn panic(info: &PanicInfo) -> ! {
 }
 
 
+// Entry point of the Rust world.
 #[no_mangle]
 pub extern "C" fn __bare_start() -> ! {
     // Print the current stack usage.

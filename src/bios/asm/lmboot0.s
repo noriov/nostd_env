@@ -137,8 +137,8 @@ lmboot0_rm16:
 	# Load blocks from drive.
 	# Input:
 	#   EAX : Logical Block Address (LBA)
-	#   ECX : Number of blocks
 	#   EBX : Memory address
+	#   CX  : Number of blocks
 	#   DL  : Drive ID
 	# Output:
 	#   CF  : 0 if successful, 1 if failed.
@@ -361,15 +361,18 @@ lmboot0_print_asciz_done:
 #
 # Note1: It is assumed that BIOS supports INT 13h AH=42h.
 #
-# Note2: The maximum number of blocks that can be loaded by one
-#         "INT 13h AH=42h" call seems to vary depending on BIOSes.
+# Note2: Because 20-bit address space (1MiB) = 2048 bytes * 512 bytes,
+#        the theoretically maximum number of blocks is 2048.
+#
+# Note3: The maximum number of blocks that can be loaded by one
+#        "INT 13h AH=42h" call seems to vary depending on BIOSes.
 #        The possibly lowest number of the maximum number of blocks
-#        is said to be 127.
+#        is said to be 127.  (Note: 127 * 512 = 65024 < 65536)
 #
 # IN
 #	EAX	: Logical Block Address (LBA)
-#	ECX	: Number of blocks
 #	EBX	: Memory address
+#	CX	: Number of blocks
 #	DL	: Drive ID
 #
 # OUT
@@ -383,12 +386,12 @@ lmboot0_load_blocks:
 	# Save working register values.
 	pushl	%eax
 	pushl	%ebx
-	pushl	%ecx
+	pushw	%cx
 
 lmboot0_load_blocks_loop:
 	# If the number of blocks to be loaded is below or equal to
 	# the maximum number (127), quit this loop.
-	cmpl	$MAX_NBLK, %ecx
+	cmpw	$MAX_NBLK, %cx
 	jbe	lmboot0_load_blocks_final
 
 	pushw	%cx
@@ -399,7 +402,7 @@ lmboot0_load_blocks_loop:
 
 	# Update parameters for next loading.
 	addl	$MAX_NBLK, %eax
-	subl	$MAX_NBLK, %ecx
+	subw	$MAX_NBLK, %cx
 	addl	$(BLK_SIZE * MAX_NBLK), %ebx
 	jmp	lmboot0_load_blocks_loop
 
@@ -409,7 +412,7 @@ lmboot0_load_blocks_final:
 lmboot0_load_blocks_done:
 	# Restore saved register values.
 	# Note: FLAGS are not affected by POPs below.
-	popl	%ecx
+	popw	%cx
 	popl	%ebx
 	popl	%eax
 

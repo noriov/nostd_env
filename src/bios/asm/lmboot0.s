@@ -144,7 +144,7 @@ lmboot0_rm16:
 	#   CF  : 0 if successful, 1 if failed.
 	#
 	call	lmboot0_load_blocks
-	jc	lmboot0_loading_failed
+	jc	lmboot0_io_error
 
 	########################################################
 	#
@@ -296,8 +296,8 @@ lmboot0_lm64:
 # Entry points to print fatal error messages.
 #
 
-lmboot0_loading_failed:
-	movw	$lmboot0_loading_failed_msg, %si
+lmboot0_io_error:
+	movw	$lmboot0_io_error_msg, %si
 	jmp	lmboot0_error
 
 lmboot0_no_long_mode:
@@ -311,8 +311,8 @@ lmboot0_halt_repeatedly:
 	jmp	lmboot0_halt_repeatedly
 
 
-lmboot0_loading_failed_msg:
-	.asciz	"Loading Failed\r\n"
+lmboot0_io_error_msg:
+	.asciz	"I/O Error\r\n"
 lmboot0_no_long_mode_msg:
 	.asciz	"No Long Mode\r\n"
 

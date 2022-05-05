@@ -387,6 +387,12 @@ lmboot0_load_blocks:
 	pushl	%eax
 	pushl	%ebx
 	pushw	%cx
+	pushw	%di
+
+	# Convert a linear address in EBX into a far pointer in BX:DI.
+	movw	%bx, %di
+	andw	$0x000f, %di	# DI = offset (lower 4-bit)
+	shrl	$4, %ebx	# BX = segment (higher 16-bit)
 
 lmboot0_load_blocks_loop:
 	# If the number of blocks to be loaded is below or equal to
@@ -403,7 +409,7 @@ lmboot0_load_blocks_loop:
 	# Update parameters for next loading.
 	addl	$MAX_NBLK, %eax
 	subw	$MAX_NBLK, %cx
-	addl	$(BLK_SIZE * MAX_NBLK), %ebx
+	addw	$((BLK_SIZE * MAX_NBLK) >> 4), %bx
 	jmp	lmboot0_load_blocks_loop
 
 lmboot0_load_blocks_final:
@@ -412,6 +418,7 @@ lmboot0_load_blocks_final:
 lmboot0_load_blocks_done:
 	# Restore saved register values.
 	# Note: FLAGS are not affected by POPs below.
+	popw	%di
 	popw	%cx
 	popl	%ebx
 	popl	%eax
@@ -424,9 +431,10 @@ lmboot0_load_blocks_done:
 #
 # IN
 #	EAX	: Logical Block Address (LBA)
+#	BX	: Segment of memory address
 #	CX	: Number of blocks (Maximum number = MAX_NBLK)
-#	EBX	: Memory address
 #	DL	: Drive ID
+#	DI	: Offset of memory address
 #
 # OUT
 #	FLAGS	: CF = 0 if successful, CF = 1 if failed.
@@ -434,7 +442,6 @@ lmboot0_load_blocks_done:
 
 lmboot0_load_blocks_amap:
 	# Save working register values.
-	pushl	%ebx
 	pushw	%ax
 	pushw	%si
 	pushw	%bp
@@ -448,13 +455,10 @@ lmboot0_load_blocks_amap:
 	movw	$0x0010, (%si)		# 00   : Size of DAP = 0x10
 					# 01   : (reserved)  = 0x00
 	movw	%cx, 0x02(%si)		# 02-03: Number of blocks to be loaded
-	movw	%bx, 0x04(%si)		# 04-05: Offset to memory buffer
-	xorw	%bx, %bx	# Clear lower 16-bit of EBX.
-	shrl	$4, %ebx	# Now, lower 16-bit of EBX holds segment.
+	movw	%di, 0x04(%si)		# 04-05: Offset to memory buffer
 	movw	%bx, 0x06(%si)		# 06-07: Segment of memory buffer
 	movl	%eax, 0x08(%si)		# 08-0B: Start block (lower 32 bits)
-	xorl	%ebx, %ebx	# EBX=0
-	movl	%ebx, 0x0c(%si)		# 0C-0F: Start block (higher 32 bits)
+	movl	$0, 0x0c(%si)		# 0C-0F: Start block (higher 32 bits)
 
 	# INT 13h AH=42h (Extended Read Sectors From Drive)
 	# DL = Drive ID, DS:SI = Address of Disk Address Packet (DAP)
@@ -468,7 +472,6 @@ lmboot0_load_blocks_amap:
 	popw	%bp
 	popw	%si
 	popw	%ax
-	popl	%ebx
 
 	retw
 

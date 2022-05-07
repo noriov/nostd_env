@@ -70,10 +70,9 @@
 	.code16
 
 	# The values of these symbols are imported from the linker script.
-	.set	PGTBL_START, __lmb_page_tables_start
 	.set	PML4_START, __lmb_pml4_start
 	.set	PDPT_START, __lmb_pdpt_start
-	.set	PGTBL_END, __lmb_page_tables_end
+	.set	PGTBL_SIZE, 0x1000 * 2
 	.set	STACK_END, __lmb_stack_end
 	.set	MAIN1_START, __lmb_main1_start
 	.set	MAIN1_END, __lmb_main1_end
@@ -179,16 +178,16 @@ lmboot0_rm16:
 	#   (2) One PDPT (Size: 4KB) with 4 entries pointing to 1GB-Pages
 	#
 
+	# Set PML4 start address (page table start address) to ESI.
+	movl	$PML4_START, %esi	# ESI = PML4 start address
+
 	# Clear page table area. # Alreay DF = 0 (Direction flag)
-	movl	$PGTBL_START, %edi	# EDI = start of page tables
-	movl	$PGTBL_END, %ecx	# ECX = end of page tables (for now)
-	subl	%edi, %ecx		# ECX = page table size (for now)
-	shrl	$2, %ecx		# ECX = page table size / 4
-	xorl	%eax, %eax		# EAX = 0
+	movw	%si, %di		# DI = start of page tables
+	movw	$(PGTBL_SIZE / 2), %cx	# CX = page table size / 2
+	xorw	%ax, %ax		# AX = 0
 	rep stosl
 
-	# Set PML4 start address to ESI, and set PDPT start address to DI.
-	movl	$PML4_START, %esi	# ESI = PML4 start address
+	# Set PDPT start address to DI.
 	movw	$PDPT_START, %di	# DI = PDPT start address
 
 	# Construct PML4 table (with 1 entry) that is the root of page tables.

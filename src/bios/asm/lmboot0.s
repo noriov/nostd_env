@@ -377,16 +377,19 @@ lmboot0_print_asciz_done:
 # OUT
 #	FLAGS	: CF = 0 if successful, CF = 1 if failed.
 #
+# Scratched: EAX, EBX, CX, DI
+# Scratched: SI, BP
+#
 
 	.set	BLK_SIZE, 512	# Logical Block Size
 	.set	MAX_NBLK, 127	# Maximum Number of Blocks (see Note2 above)
 
 lmboot0_load_blocks:
-	# Save working register values.
-	pushl	%eax
-	pushl	%ebx
-	pushw	%cx
-	pushw	%di
+#	# Save working register values.
+#	pushl	%eax
+#	pushl	%ebx
+#	pushw	%cx
+#	pushw	%di
 
 	# Convert a linear address in EBX into a far pointer in BX:DI.
 	movw	%bx, %di
@@ -415,12 +418,12 @@ lmboot0_load_blocks_final:
 	call	lmboot0_load_blocks_amap
 
 lmboot0_load_blocks_done:
-	# Restore saved register values.
-	# Note: FLAGS are not affected by POPs below.
-	popw	%di
-	popw	%cx
-	popl	%ebx
-	popl	%eax
+#	# Restore saved register values.
+#	# Note: FLAGS are not affected by POPs below.
+#	popw	%di
+#	popw	%cx
+#	popl	%ebx
+#	popl	%eax
 
 	retw
 
@@ -438,12 +441,14 @@ lmboot0_load_blocks_done:
 # OUT
 #	FLAGS	: CF = 0 if successful, CF = 1 if failed.
 #
+# Scratched: SI, BP
+#
 
 lmboot0_load_blocks_amap:
 	# Save working register values.
 	pushw	%ax
-	pushw	%si
-	pushw	%bp
+#	pushw	%si
+#	pushw	%bp
 
 	# Allocate memory for the Disk Address Packet (DAP) on the stack.
 	movw	%sp, %bp		# Save %sp to %bp
@@ -468,8 +473,8 @@ lmboot0_load_blocks_amap:
 	movw	%bp, %sp		# Restore %sp from %bp
 
 	# Restore saved register values.
-	popw	%bp
-	popw	%si
+#	popw	%bp
+#	popw	%si
 	popw	%ax
 
 	retw

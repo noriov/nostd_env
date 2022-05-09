@@ -136,7 +136,7 @@ lmboot0_rm16:
 	# Load blocks from drive.
 	# Input:
 	#   EAX : Logical Block Address (LBA)
-	#   EBX : Memory address
+	#   EBX : Memory address (16 byte aligned)
 	#   CX  : Number of blocks
 	#   DL  : Drive ID
 	# Output:
@@ -370,7 +370,7 @@ lmboot0_print_asciz_done:
 #
 # IN
 #	EAX	: Logical Block Address (LBA)
-#	EBX	: Memory address
+#	EBX	: Memory address (16 byte aligned)
 #	CX	: Number of blocks
 #	DL	: Drive ID
 #
@@ -391,10 +391,8 @@ lmboot0_load_blocks:
 #	pushw	%cx
 #	pushw	%di
 
-	# Convert a linear address in EBX into a far pointer in BX:DI.
-	movw	%bx, %di
-	andw	$0x000f, %di	# DI = offset (lower 4-bit)
-	shrl	$4, %ebx	# BX = segment (higher 16-bit)
+	# BX holds segment of memory address
+	shrl	$4, %ebx	# BX = segment (higher 16-bit of 20-bit addr)
 
 lmboot0_load_blocks_loop:
 	# If the number of blocks to be loaded is below or equal to
@@ -450,6 +448,9 @@ lmboot0_load_blocks_amap:
 #	pushw	%si
 #	pushw	%bp
 
+	# Clear EDI
+	xor	%edi, %edi		# EDI = 0
+
 	# Allocate memory for the Disk Address Packet (DAP) on the stack.
 	movw	%sp, %bp		# Save %sp to %bp
 	subw	$0x10, %sp		# The size of DAP = 0x10
@@ -462,7 +463,7 @@ lmboot0_load_blocks_amap:
 	movw	%di, 0x04(%si)		# 04-05: Offset to memory buffer
 	movw	%bx, 0x06(%si)		# 06-07: Segment of memory buffer
 	movl	%eax, 0x08(%si)		# 08-0B: Start block (lower 32 bits)
-	movl	$0, 0x0c(%si)		# 0C-0F: Start block (higher 32 bits)
+	movl	%edi, 0x0c(%si)		# 0C-0F: Start block (higher 32 bits)
 
 	# INT 13h AH=42h (Extended Read Sectors From Drive)
 	# DL = Drive ID, DS:SI = Address of Disk Address Packet (DAP)

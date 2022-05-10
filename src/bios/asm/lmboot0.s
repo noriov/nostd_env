@@ -325,10 +325,6 @@ lmboot0_no_long_mode_msg:
 # Scratched: AX, BX
 #
 lmboot0_print_asciz:
-#	# Save working register values.
-#	pushw	%ax
-#	pushw	%bx
-
 	# BH (Page number) = 0, BL (Color) = 15 (White)
 	movw	$0x000f, %bx
 
@@ -347,10 +343,6 @@ lmboot0_print_asciz_loop:
 	jmp	lmboot0_print_asciz_loop
 
 lmboot0_print_asciz_done:
-#	# Restore saved register values.
-#	popw	%bx
-#	popw	%ax
-
 	retw
 
 
@@ -378,19 +370,13 @@ lmboot0_print_asciz_done:
 #	FLAGS	: CF = 0 if successful, CF = 1 if failed.
 #
 # Scratched: EAX, EBX, CX, DI
-# Scratched: SI, BP
+# Scratched: SI, EDI, BP
 #
 
 	.set	BLK_SIZE, 512	# Logical Block Size
 	.set	MAX_NBLK, 127	# Maximum Number of Blocks (see Note2 above)
 
 lmboot0_load_blocks:
-#	# Save working register values.
-#	pushl	%eax
-#	pushl	%ebx
-#	pushw	%cx
-#	pushw	%di
-
 	# BX holds segment of memory address
 	shrl	$4, %ebx	# BX = segment (higher 16-bit of 20-bit addr)
 
@@ -398,7 +384,7 @@ lmboot0_load_blocks_loop:
 	# If the number of blocks to be loaded is below or equal to
 	# the maximum number (127), quit this loop.
 	cmpw	$MAX_NBLK, %cx
-	jbe	lmboot0_load_blocks_final
+	jbe	lmboot0_load_blocks_amap	# not call but jmp.
 
 	pushw	%cx
 	movw	$MAX_NBLK, %cx
@@ -411,19 +397,6 @@ lmboot0_load_blocks_loop:
 	subw	$MAX_NBLK, %cx
 	addw	$((BLK_SIZE * MAX_NBLK) >> 4), %bx
 	jmp	lmboot0_load_blocks_loop
-
-lmboot0_load_blocks_final:
-	call	lmboot0_load_blocks_amap
-
-lmboot0_load_blocks_done:
-#	# Restore saved register values.
-#	# Note: FLAGS are not affected by POPs below.
-#	popw	%di
-#	popw	%cx
-#	popl	%ebx
-#	popl	%eax
-
-	retw
 
 
 #
@@ -439,14 +412,12 @@ lmboot0_load_blocks_done:
 # OUT
 #	FLAGS	: CF = 0 if successful, CF = 1 if failed.
 #
-# Scratched: SI, BP
+# Scratched: SI, EDI, BP
 #
 
 lmboot0_load_blocks_amap:
 	# Save working register values.
 	pushw	%ax
-#	pushw	%si
-#	pushw	%bp
 
 	# Clear EDI
 	xor	%edi, %edi		# EDI = 0
@@ -474,10 +445,9 @@ lmboot0_load_blocks_amap:
 	movw	%bp, %sp		# Restore %sp from %bp
 
 	# Restore saved register values.
-#	popw	%bp
-#	popw	%si
 	popw	%ax
 
+lmboot0_load_blocks_done:
 	retw
 
 

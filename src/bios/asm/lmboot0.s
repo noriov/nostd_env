@@ -292,28 +292,21 @@ lmboot0_lm64:
 
 ########################################################################
 #
-# Entry points to print fatal error messages.
+# Print fatal error messages.
 #
-
-lmboot0_io_error:
-	movw	$lmboot0_io_error_msg, %si
-	jmp	lmboot0_error
-
-lmboot0_no_long_mode:
-	movw	$lmboot0_no_long_mode_msg, %si
-
-lmboot0_error:
-	call	lmboot0_print_asciz
-
-lmboot0_halt_repeatedly:
-	hlt
-	jmp	lmboot0_halt_repeatedly
-
 
 lmboot0_io_error_msg:
 	.asciz	"I/O Error\r\n"
 lmboot0_no_long_mode_msg:
 	.asciz	"No Long Mode\r\n"
+
+lmboot0_io_error:
+	movw	$lmboot0_io_error_msg, %si
+	jmp	lmboot0_print_asciz
+
+lmboot0_no_long_mode:
+	movw	$lmboot0_no_long_mode_msg, %si
+#	goes through into lmboot0_print_asciz
 
 
 #
@@ -333,7 +326,7 @@ lmboot0_print_asciz_loop:
 	#   Note: Already DF = 0 (Direction flag)
 	lodsb		# AL = DS:[SI++]
 	testb	%al, %al
-	jz	lmboot0_print_asciz_done
+	jz	lmboot0_halt_repeatedly
 
 	# INT 10h AH=0Eh (Teletype Output)
 	# AL = Character, BH = Page number, BL = Foreground color
@@ -342,8 +335,12 @@ lmboot0_print_asciz_loop:
 
 	jmp	lmboot0_print_asciz_loop
 
-lmboot0_print_asciz_done:
-	retw
+#
+# lmboot0_halt_repeatedly - Halt forever
+#
+lmboot0_halt_repeatedly:
+	hlt
+	jmp	lmboot0_halt_repeatedly
 
 
 ########################################################################

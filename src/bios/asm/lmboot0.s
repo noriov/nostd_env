@@ -192,11 +192,12 @@ lmboot0_rm16:
 
 	# Construct PML4 table (with 1 entry) that is the root of page tables.
 	movzx	%di, %eax		# EAX = PDPT start address
-	orl	$3, %eax		# Bit 0: Present, Bit 1: R/W
+	orb	$0x03, %al		# Bit 0: Present, Bit 1: R/W
 	movl	%eax, 0x00(%si)		# 0th entry of PML4 table
 
 	# Construct the 0th PDPT (with 4 entries for four 1GB-Pages).
-	movl	$0x83, %eax # Bit 0: Present, Bit 1: R/W, Bit 7: 1GB-Page
+	xorl	%eax, %eax		# EAX = 0GB (the 1st 1GB page)
+	orb	$0x83, %al # Bit 0: Present, Bit 1: R/W, Bit 7: 1GB-Page
 	movl	$(1 << 30), %ecx # ECX = 1GB
 	movl	%eax, 0x00(%di)		# 0th entry of PDPT (0GB - 1GB)
 	addl	%ecx, %eax # EAX += 1GB

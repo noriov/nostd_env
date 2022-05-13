@@ -367,8 +367,7 @@ lmboot0_halt_repeatedly:
 # OUT
 #	FLAGS	: CF = 0 if successful, CF = 1 if failed.
 #
-# Scratched: EAX, EBX, CX, DI
-# Scratched: SI, EDI, BP
+# Scratched: EAX, EBX, CX, SI, EDI, BP
 #
 
 	.set	BLK_SIZE, 512	# Logical Block Size
@@ -381,21 +380,22 @@ lmboot0_load_blocks:
 lmboot0_load_blocks_loop:
 	# If the number of blocks to be loaded is below or equal to
 	# the maximum number (127), quit this loop.
-	cmpw	$MAX_NBLK, %cx
-	jbe	lmboot0_load_blocks_amap	# not call but jmp.
+	movw	$MAX_NBLK, %di			# DI = Maximum number of blocks
+	cmpw	%di, %cx
+	jbe	lmboot0_load_blocks_final	# not call but jmp.
 
-	pushw	%cx
-	movw	$MAX_NBLK, %cx
 	call	lmboot0_load_blocks_amap
-	popw	%cx
 	jc	lmboot0_load_blocks_done	# I/O error is detected.
 
 	# Update parameters for next loading.
+	# Note: EDI is scratched in lmboot0_load_blocks_amap
 	addl	$MAX_NBLK, %eax
 	subw	$MAX_NBLK, %cx
 	addw	$((BLK_SIZE * MAX_NBLK) >> 4), %bx
 	jmp	lmboot0_load_blocks_loop
 
+lmboot0_load_blocks_final:
+	movw	%cx, %di			# DI = Number of blocks
 
 #
 # Load contiguous logical blocks as many as possible using INT 13h AH=42h.
@@ -403,9 +403,8 @@ lmboot0_load_blocks_loop:
 # IN
 #	EAX	: Logical Block Address (LBA)
 #	BX	: Segment of memory address
-#	CX	: Number of blocks (Maximum number = MAX_NBLK)
 #	DL	: Drive ID
-#	DI	: Offset of memory address
+#	DI	: Number of blocks (Maximum number = MAX_NBLK)
 #
 # OUT
 #	FLAGS	: CF = 0 if successful, CF = 1 if failed.
@@ -417,9 +416,6 @@ lmboot0_load_blocks_amap:
 	# Save working register values.
 	pushw	%ax
 
-	# Clear EDI
-	xor	%edi, %edi		# EDI = 0
-
 	# Allocate memory for the Disk Address Packet (DAP) on the stack.
 	movw	%sp, %bp		# Save %sp to %bp
 	subw	$0x10, %sp		# The size of DAP = 0x10
@@ -428,7 +424,8 @@ lmboot0_load_blocks_amap:
 	movw	%sp, %si		#offset:Disk Address Packet description
 	movw	$0x0010, (%si)		# 00   : Size of DAP = 0x10
 					# 01   : (reserved)  = 0x00
-	movw	%cx, 0x02(%si)		# 02-03: Number of blocks to be loaded
+	movw	%di, 0x02(%si)		# 02-03: Number of blocks to be loaded
+	xorl	%edi, %edi  # EDI = 0
 	movw	%di, 0x04(%si)		# 04-05: Offset to memory buffer
 	movw	%bx, 0x06(%si)		# 06-07: Segment of memory buffer
 	movl	%eax, 0x08(%si)		# 08-0B: Start block (lower 32 bits)

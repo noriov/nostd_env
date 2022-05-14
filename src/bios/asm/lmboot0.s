@@ -119,26 +119,29 @@ lmboot0_rm16:
 	# Note2: %dl already has the boot drive ID.
 	#
 
-	# Memory address: EBX = $MAIN1_START
-	movl	$MAIN1_START, %ebx	# EBX = Start address of main1
+	# Memory address: EDI = $MAIN1_START
+	movl	$MAIN1_START, %edi	# EDI = Start address of main1
 
 	# Number of bytes: ECX = $MAIN1_END - $MAIN1_START
 	movl	$MAIN1_END, %ecx	# ECX = End address of main1 (for now)
-	subl	%ebx, %ecx		# ECX = Size in bytes of main1
+	subl	%edi, %ecx		# ECX = Size in bytes of main1
 
 	# Number of blocks: ECX = (ECX + 511) / 512
 	addl	$511, %ecx		# block size - 1 is added to round up
 	shrl	$9, %ecx		# ECX = Size in blocks of main1
 
-	# Logical Block Address (LBA): EAX = 1
-	movl	$1, %eax		# EAX = start LBA of main1
+	# Segment (higher 16-bit of 20-bit addr)
+	shrl	$4, %edi		# EDI = Segment of main1
+
+	# Logical Block Address (LBA): EBX = 1
+	movl	$1, %ebx		# EBX = start LBA of main1
 
 	# Load blocks from drive.
 	# Input:
-	#   EAX : Logical Block Address (LBA)
-	#   EBX : Memory address (16 byte aligned)
+	#   EBX : Logical Block Address (LBA)
 	#   CX  : Number of blocks
 	#   DL  : Drive ID
+	#   DI  : Segment of memory address
 	# Output:
 	#   CF  : 0 if successful, 1 if failed.
 	#
@@ -359,57 +362,54 @@ lmboot0_halt_repeatedly:
 #        is said to be 127.  (Note: 127 * 512 = 65024 < 65536)
 #
 # IN
-#	EAX	: Logical Block Address (LBA)
-#	EBX	: Memory address (16 byte aligned)
+#	EBX	: Logical Block Address (LBA)
 #	CX	: Number of blocks
 #	DL	: Drive ID
+#	DI	: Segment of memory address
 #
 # OUT
 #	FLAGS	: CF = 0 if successful, CF = 1 if failed.
 #
-# Scratched: EAX, EBX, CX, SI, EDI, BP
+# Scratched: EAX, EBX, CX, SI, DI, BP
 #
 
 	.set	BLK_SIZE, 512	# Logical Block Size
 	.set	MAX_NBLK, 127	# Maximum Number of Blocks (see Note2 above)
 
 lmboot0_load_blocks:
-	# BX holds segment of memory address
-	shrl	$4, %ebx	# BX = segment (higher 16-bit of 20-bit addr)
-
-lmboot0_load_blocks_loop:
 	# If the number of blocks to be loaded is below or equal to
 	# the maximum number (127), quit this loop.
-	movw	$MAX_NBLK, %di			# DI = Maximum number of blocks
-	cmpw	%di, %cx
+	movw	$MAX_NBLK, %ax			# AX = Maximum number of blocks
+	cmpw	%ax, %cx
 	jbe	lmboot0_load_blocks_final	# not call but jmp.
 
 	call	lmboot0_load_blocks_amap
 	jc	lmboot0_load_blocks_done	# I/O error is detected.
 
 	# Update parameters for next loading.
-	# Note: EDI is scratched in lmboot0_load_blocks_amap
-	addl	$MAX_NBLK, %eax
-	subw	$MAX_NBLK, %cx
-	addw	$((BLK_SIZE * MAX_NBLK) >> 4), %bx
-	jmp	lmboot0_load_blocks_loop
+	# Note: Now, EAX holds the maximum nuber of blocks because
+	#       higher 16-bit of EAX is zeroed in lmboot0_load_blocks_amap.
+	addl	%eax, %ebx			# LBA += MAX_NBLK
+	subw	%ax, %cx			# NB  -= MAX_NBLK
+	addw	$((BLK_SIZE * MAX_NBLK) >> 4), %di # SEG += NSEG
+	jmp	lmboot0_load_blocks
 
 lmboot0_load_blocks_final:
-	movw	%cx, %di			# DI = Number of blocks
+	movw	%cx, %ax			# AX = Number of blocks
 
 #
 # Load contiguous logical blocks as many as possible using INT 13h AH=42h.
 #
 # IN
-#	EAX	: Logical Block Address (LBA)
-#	BX	: Segment of memory address
+#	AX	: Number of blocks (Maximum number = MAX_NBLK)
+#	EBX	: Logical Block Address (LBA)
 #	DL	: Drive ID
-#	DI	: Number of blocks (Maximum number = MAX_NBLK)
+#	DI	: Segment of memory address
 #
 # OUT
 #	FLAGS	: CF = 0 if successful, CF = 1 if failed.
 #
-# Scratched: SI, EDI, BP
+# Scratched: SI, BP, EAX (higher 16-bits are zeroed)
 #
 
 lmboot0_load_blocks_amap:
@@ -424,12 +424,12 @@ lmboot0_load_blocks_amap:
 	movw	%sp, %si		#offset:Disk Address Packet description
 	movw	$0x0010, (%si)		# 00   : Size of DAP = 0x10
 					# 01   : (reserved)  = 0x00
-	movw	%di, 0x02(%si)		# 02-03: Number of blocks to be loaded
-	xorl	%edi, %edi  # EDI = 0
-	movw	%di, 0x04(%si)		# 04-05: Offset to memory buffer
-	movw	%bx, 0x06(%si)		# 06-07: Segment of memory buffer
-	movl	%eax, 0x08(%si)		# 08-0B: Start block (lower 32 bits)
-	movl	%edi, 0x0c(%si)		# 0C-0F: Start block (higher 32 bits)
+	movw	%ax, 0x02(%si)		# 02-03: Number of blocks to be loaded
+	xorl	%eax, %eax  # EAX = 0
+	movw	%ax, 0x04(%si)		# 04-05: Offset to memory buffer = 0
+	movw	%di, 0x06(%si)		# 06-07: Segment of memory buffer
+	movl	%ebx, 0x08(%si)		# 08-0B: Start block (lower 32 bits)
+	movl	%eax, 0x0c(%si)		# 0C-0F: Start block (higher 32 bits)=0
 
 	# INT 13h AH=42h (Extended Read Sectors From Drive)
 	# DL = Drive ID, DS:SI = Address of Disk Address Packet (DAP)

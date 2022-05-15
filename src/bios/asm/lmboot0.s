@@ -461,6 +461,12 @@ __lmboot0_boot_drive_id:
 # Global Descriptor Table (GDT) for Long Mode
 #
 
+.org 0x192
+
+lmboot0_gdt_location:
+	.word	lmboot0_gdt_end - lmboot0_gdt_start - 1	# Limit
+	.long	lmboot0_gdt_start			# Base
+
 .org 0x198
 
 lmboot0_gdt_start:
@@ -470,17 +476,16 @@ lmboot0_gdt_start:
 	.quad	0x0000920000000000	# 3: Data
 lmboot0_gdt_end:
 
-.org 0x1b8
-
-lmboot0_gdt_location:
-	.word	lmboot0_gdt_end - lmboot0_gdt_start - 1	# Limit
-	.long	lmboot0_gdt_start			# Base
-
 
 ########################################################################
 #
 # Trailer of the boot block
 #
+
+# Disk signature (4 bytes + 2 bytes)
+.org 0x1b8
+	.long	0	# 32-bit disk signature
+	.word	0	# 0x0000 (0x5A5A if copy-protected)
 
 # Partition table (16 bytes * 4 entries)
 .org 0x1be

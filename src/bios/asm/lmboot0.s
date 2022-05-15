@@ -87,6 +87,16 @@
 #
 
 __lmboot0_entry:
+	jmp	lmboot0_start
+#	nop
+
+	# Room for disk parameters.
+	#   e.g. BIOS Parameter Block of FAT12 or FAT16 (0x3E bytes)
+
+.org 0x047
+
+lmboot0_start:
+
 	########################################################
 	#
 	# Initialize segment registers and FLAGS.

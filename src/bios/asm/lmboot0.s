@@ -2,8 +2,8 @@
 # lmboot0 - Boot a program in Long Mode (for X86_64 / PC Compatible machines)
 #
 # lmboot0 is a small boot loader to run a Rust no_std program in X86
-# Long Mode.  Because its size <= 0x1BE, it fits in a classical Master
-# Boot Record (MBR).
+# Long Mode.  Because its size <= 0x171 bytes (369 bytes), it fits in
+# a Master Boot Record (MBR).
 #
 # lmboot0 assumes that:
 #   (1) CPU supports Long Mode,
@@ -16,7 +16,7 @@
 #   (6) All messages should be printed by loaded program.
 #
 # And loaded program is assumed that:
-#   (7) It is contiguously stored from LBA=1 in the boot drive,
+#   (7) It is contiguously stored from LBA_START in the boot drive,
 #   (8) Its memory area is from MAIN1_START to MAIN1_END - 1, and
 #   (9) Its entry point is __bare_start.
 #
@@ -37,7 +37,7 @@
 #   (4) Initial RSP = STACK_END, and
 #   (5) Interrupts are disabled.
 #
-# Because the size of lmboot0 <= 0x1BE, lmboot0 fits in a classical MBR.
+# Because the size of lmboot0 <= 0x171, lmboot0 fits in an MBR.
 # It works on QEMU Ver 6.2.0 with SeaBIOS Rel 1.15.0 as of Apr 2022.
 #
 # Note1: The values of symbols above are imported from the linker script.
@@ -76,6 +76,7 @@
 	.set	STACK_END, __lmb_stack_end
 	.set	MAIN1_START, __lmb_main1_start
 	.set	MAIN1_END, __lmb_main1_end
+	.set	LBA_START, 1
 
 
 #########################################################################
@@ -125,9 +126,6 @@ lmboot0_rm16:
 	#
 	# Load main program from the boot drive.
 	#
-	# Note1: The first block (MBR, LBA=0) has been loaded.
-	# Note2: %dl already has the boot drive ID.
-	#
 
 	# Memory address: EDI = $MAIN1_START
 	movl	$MAIN1_START, %edi	# EDI = Start address of main1
@@ -138,15 +136,15 @@ lmboot0_rm16:
 
 	# Number of blocks: ECX = (ECX + 511) / 512
 	addl	$511, %ecx		# block size - 1 is added to round up
-	shrl	$9, %ecx		# ECX = Size in blocks of main1
+	shrl	$9, %ecx		# CX = Size in blocks of main1
 
-	# Segment (higher 16-bit of 20-bit addr)
-	shrl	$4, %edi		# EDI = Segment of main1
+	# Segment of memory address (higher 16-bit of 20-bit address)
+	shrl	$4, %edi		# DI = Segment of main1
 
-	# Logical Block Address (LBA): EBX = 1
-	movl	$1, %ebx		# EBX = start LBA of main1
+	# Logical Block Address (LBA): EBX = $LBA_START
+	movl	$LBA_START, %ebx	# EBX = start LBA of main1
 
-	# Load blocks from drive.
+	# Load blocks from the boot drive.
 	# Input:
 	#   EBX : Logical Block Address (LBA)
 	#   CX  : Number of blocks
@@ -154,6 +152,8 @@ lmboot0_rm16:
 	#   DI  : Segment of memory address
 	# Output:
 	#   CF  : 0 if successful, 1 if failed.
+	#
+	# Note: %dl already has the boot drive ID.
 	#
 	call	lmboot0_load_blocks
 	jc	lmboot0_io_error
@@ -363,7 +363,7 @@ lmboot0_halt_repeatedly:
 #
 # Note1: It is assumed that BIOS supports INT 13h AH=42h.
 #
-# Note2: Because 20-bit address space (1MiB) = 2048 bytes * 512 bytes,
+# Note2: Because 20-bit address space (1MiB) = 2048 * 512 bytes,
 #        the theoretically maximum number of blocks is 2048.
 #
 # Note3: The maximum number of blocks that can be loaded by one
@@ -384,7 +384,7 @@ lmboot0_halt_repeatedly:
 #
 
 	.set	BLK_SIZE, 512	# Logical Block Size
-	.set	MAX_NBLK, 127	# Maximum Number of Blocks (see Note2 above)
+	.set	MAX_NBLK, 127	# Maximum Number of Blocks (see Note3 above)
 
 lmboot0_load_blocks:
 	# If the number of blocks to be loaded is below or equal to
@@ -405,7 +405,7 @@ lmboot0_load_blocks:
 	jmp	lmboot0_load_blocks
 
 lmboot0_load_blocks_final:
-	movw	%cx, %ax			# AX = Number of blocks
+	movw	%cx, %ax			# AX = Final number of blocks
 
 #
 # Load contiguous logical blocks as many as possible using INT 13h AH=42h.
@@ -489,7 +489,7 @@ lmboot0_gdt_end:
 
 ########################################################################
 #
-# Trailer of the boot block
+# Trailer of Master Boot Record (MBR)
 #
 
 # Disk signature (4 bytes + 2 bytes)

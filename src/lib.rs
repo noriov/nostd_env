@@ -15,8 +15,8 @@ Everything is a work in progress, everything is subject to change.
 # Components
 
 * `lmboot0` - is a small boot loader to run a Rust `no_std` program in
-  X86 Long Mode.  Because its size <= 0x1BE, it fits in a classical
-  Master Boot Record (MBR).
+  X86 Long Mode.  Because its size <= 0x171 bytes (369 bytes), it fits
+  in a Master Boot Record (MBR).
 
 * `lmbios1` - provides a method to call a Real Mode function from Long
   Mode.  That is, it switches CPU operating mode from Long Mode to

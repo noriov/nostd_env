@@ -52,24 +52,33 @@ To see the documents, run the following command.
 % rustup component add llvm-tools-preview
 ```
 
-3. qemu-system-x86_64 (cf. <https://www.qemu.org>)
+One of the following commands may be required when building `nostd_env`.
 
 ```sh
-% brew install qemu
+macos% rustup component add rust-src --toolchain nightly-x86_64-apple-darwin
+win11> rustup component add rust-src --toolchain nightly-x86_64-pc-windows-msvc
+linux$ rustup component add rust-src --toolchain nightly-x86_64-unknown-linux-gnu
 ```
+
+3. qemu-system-x86_64 (cf. <https://www.qemu.org>)
 
 # How to Build and Run
 
-On macOS: At the top directory, enter the following commands.
+On Linux and macOS: At the top directory, enter the following commands.
 
 ```sh
 % cargo build
 % ./run-qemu.sh
 ```
 
-Then, make a branch and edit files as you like.
+On Windows 11: At the top directory, enter the following commands.
 
-On other systems: (To be described..)
+```sh
+> cargo build
+> .\run-qemu.ps1
+```
+
+Then, make a branch and edit files as you like.
 
  */
 

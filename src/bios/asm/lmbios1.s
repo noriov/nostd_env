@@ -31,24 +31,24 @@
 #
 # lmbios1 requires that:
 #
-#   (1) Code address and stack address are less than 64KB.
+#   (1) Code address and stack address are in 16-bit address space.
 #       In Real Mode, Instruction Pointer (IP) and Stack Pointer (SP)
 #       are 16-bit, while lmbios1 initializes all segment registers to
-#       zero.
+#       zero.  Consequently, they must be less than 64KB.
 #
 #       Note: Only during a Real Mode function call, DS and ES are
 #       changed as specified in struct LmbiosRegs.
 #
-#   (2) Data addresses passed to lmbios1 are less than 4GB.
-#       In Real Mode, 32-bit registers work but 64-bit register don't.
+#   (2) Data addresses passed to lmbios1 are in 32-bit address space.
+#       In Real Mode, 32-bit registers work but 64-bit registers don't.
 #       Hence, data addresses (e.g. addresses of struct LmbiosRegs)
-#       must be in 32-bit address space.
+#       must be less than 4GB.
 #
 #       Note: Thanks to Unreal Mode effect, lmbios1 can access up to
 #       32-bit address space (4GB) by using register indirect addressing
 #       even in Real Mode.
 #
-#   (3) Any address passed to Real Mode legacy functions is less than 1MB.
+#   (3) Any address passed to Real Mode functions is in 20-bit addr space.
 #       Real Mode legacy functions access memory using 16-bit segment
 #       register and 16-bit offset (i.e., 20-bit address space).
 #       Therefore, if memory address should be exchanged with
@@ -161,7 +161,7 @@ lmbios1_intn:
 	#	C3	RET
 	#	90	NOP
 	#
-	# Note1: Because X86 is little-endian machine, while assembly
+	# Note1: Because X86 is little-endian machine while assembly
 	#        languages use the positional notation for numbers,
 	#        these 4 bytes code should be represented in the
 	#        reverse order, i.e., 0x90C3hhCD.

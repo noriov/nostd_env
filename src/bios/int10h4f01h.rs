@@ -158,7 +158,8 @@ impl ModeInfoBlock {
 
     fn uninit() -> Self {
 	unsafe {
-	    MaybeUninit::<Self>::uninit().assume_init()
+	    let myself = MaybeUninit::<Self>::uninit();
+	    myself.assume_init()
 	}
     }
 
